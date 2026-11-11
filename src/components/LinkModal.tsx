@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Category, LinkItem } from '../lib/types';
-import { flattenTree } from '../lib/tree';
 import { fetchTitle, normalizeUrl } from '../lib/utils';
+import { FolderPicker } from './FolderPicker';
 import { Modal } from './Modal';
 
 export type LinkDraft = { url: string; title: string; note: string; categoryId: string | null };
@@ -11,12 +11,13 @@ type Props = {
   initial: Partial<LinkItem>;
   categories: Category[];
   autoGroup: boolean;
+  onCreateCategory: (name: string, parentId: string | null) => string;
   /** Retorna mensagem de erro, ou null se salvou */
   onSave: (draft: LinkDraft) => string | null;
   onClose: () => void;
 };
 
-export function LinkModal({ mode, initial, categories, autoGroup, onSave, onClose }: Props) {
+export function LinkModal({ mode, initial, categories, autoGroup, onCreateCategory, onSave, onClose }: Props) {
   const [url, setUrl] = useState(initial.url ?? '');
   const [title, setTitle] = useState(initial.title ?? '');
   const [note, setNote] = useState(initial.note ?? '');
@@ -70,18 +71,14 @@ export function LinkModal({ mode, initial, categories, autoGroup, onSave, onClos
             autoFocus={Boolean(initial.url)}
           />
         </label>
-        <label>
-          <span>Gaveta</span>
-          <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value || null)}>
-            <option value="">{autoGroup && mode === 'new' ? '✨ Automático (gaveta do site)' : '📥 Caixa de entrada'}</option>
-            {flattenTree(categories).map(({ category: c, depth }) => (
-              <option key={c.id} value={c.id}>
-                {'\u00A0\u00A0\u00A0'.repeat(depth)}
-                {c.emoji} {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <FolderPicker
+          label="Gaveta"
+          categories={categories}
+          value={categoryId}
+          onChange={setCategoryId}
+          emptyLabel={autoGroup && mode === 'new' ? '✨ Automático (gaveta do site)' : '📥 Caixa de entrada'}
+          onCreate={onCreateCategory}
+        />
         <label>
           <span>Nota</span>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Por que guardou isso? (opcional)" />

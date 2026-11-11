@@ -65,7 +65,8 @@ Abra <http://localhost:5180>. O `localhost` já vem autorizado no Firebase Auth.
 
 A pasta [`extension/`](extension/) tem uma extensão que funciona no **Firefox** e nos navegadores baseados em Chromium (**Vivaldi**, Chrome, Edge, Brave, Opera). É o mesmo código para todos:
 
-- **Guardar esta aba**: abre uma janelinha do Gaveta já preenchida, onde você escolhe a gaveta e adiciona uma nota
+- **Escolher ou criar a gaveta no próprio popup**, incluindo subpastas. A lista é atualizada sempre que você abre o site do Gaveta, e a última escolha fica lembrada
+- **Guardar esta aba**: guarda direto na gaveta escolhida. Para editar título e nota antes, use *Editar título e nota antes de guardar*
 - **Guardar todas as abas desta janela**: abre o Gaveta com a lista pronta para importar (abas fixadas ficam de fora)
 - **Fechar as abas depois de guardar** (opcional): as abas só fecham depois que o Gaveta confirma que gravou no banco. Se você cancelar ou der erro, nenhuma aba fecha
 - Usa o título da aba aberta, ou seja, o título exato daquele momento

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { Category } from '../lib/types';
-import { flattenTree } from '../lib/tree';
-import { hostOf, normalizeUrl, parseBulk, urlKey } from '../lib/utils';
+import { cleanItems, hostOf, parseBulk, urlKey } from '../lib/utils';
 import { Favicon } from './Favicon';
+import { FolderPicker } from './FolderPicker';
 import { Modal } from './Modal';
 
 type Item = { url: string; title: string };
@@ -13,28 +13,17 @@ type Props = {
   defaultCategoryId: string | null;
   autoGroup: boolean;
   loading: boolean;
+  onCreateCategory: (name: string, parentId: string | null) => string;
   /** Abas enviadas pela extensão: mostra a lista em vez da caixa de texto */
   initialItems?: Item[];
   onImport: (items: Item[], categoryId: string | null) => Promise<void>;
   onClose: () => void;
 };
 
-function cleanItems(items: Item[]): Item[] {
-  const seen = new Set<string>();
-  const out: Item[] = [];
-  for (const it of items) {
-    const url = normalizeUrl(it.url);
-    if (!url || seen.has(urlKey(url))) continue;
-    seen.add(urlKey(url));
-    out.push({ url, title: it.title.trim() });
-  }
-  return out;
-}
-
-export function ImportModal({ categories, existingKeys, defaultCategoryId, autoGroup, loading, initialItems, onImport, onClose }: Props) {
+export function ImportModal({ categories, existingKeys, defaultCategoryId, autoGroup, loading, onCreateCategory, initialItems, onImport, onClose }: Props) {
   const fromTabs = Boolean(initialItems);
   const [text, setText] = useState('');
-  const [categoryId, setCategoryId] = useState<string | null>(fromTabs ? null : defaultCategoryId);
+  const [categoryId, setCategoryId] = useState<string | null>(defaultCategoryId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,18 +78,14 @@ export function ImportModal({ categories, existingKeys, defaultCategoryId, autoG
             />
           </>
         )}
-        <label>
-          <span>Guardar em</span>
-          <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value || null)}>
-            <option value="">{autoGroup ? '✨ Automático (gaveta de cada site)' : '📥 Caixa de entrada'}</option>
-            {flattenTree(categories).map(({ category: c, depth }) => (
-              <option key={c.id} value={c.id}>
-                {'\u00A0\u00A0\u00A0'.repeat(depth)}
-                {c.emoji} {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <FolderPicker
+          label="Guardar em"
+          categories={categories}
+          value={categoryId}
+          onChange={setCategoryId}
+          emptyLabel={autoGroup ? '✨ Automático (gaveta de cada site)' : '📥 Caixa de entrada'}
+          onCreate={onCreateCategory}
+        />
         {error && <p className="form-error">{error}</p>}
         <div className="form-actions">
           <span className="muted small push-left">

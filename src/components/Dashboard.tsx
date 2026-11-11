@@ -16,11 +16,11 @@ import {
   useUserData,
 } from '../lib/data';
 import type { Category, LinkItem } from '../lib/types';
-import { DRAG_LINK } from '../lib/types';
+import { CATEGORY_COLORS, DRAG_LINK } from '../lib/types';
 import { planGrouping } from '../lib/grouping';
-import { ancestorsOf, totalsOf } from '../lib/tree';
+import { ancestorsOf, flattenTree, totalsOf } from '../lib/tree';
 import { fetchThumb, isValidThumb } from '../lib/thumb';
-import { download, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
+import { cleanItems, download, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
 import { Icon } from './Icon';
 import { ImportModal } from './ImportModal';
@@ -35,7 +35,23 @@ type LinkModalState =
   | { mode: 'edit'; initial: LinkItem }
   | null;
 
-type ImportState = { items?: { url: string; title: string }[]; rid?: string } | null;
+type ImportState = { items?: { url: string; title: string }[]; rid?: string; categoryId?: string; auto?: boolean; newFolder?: NewFolder } | null;
+
+/** Gaveta nova pedida pela extensão, criada na hora de guardar */
+type NewFolder = { name: string; parentId: string | null };
+
+/** Pedido da extensão, tratado quando os dados carregam. edit = abrir o formulário em vez de guardar direto */
+type AutoSave =
+  | { kind: 'one'; url: string; title: string; categoryId?: string; rid?: string; closeAfter: boolean; thumb?: string; edit: boolean; newFolder?: NewFolder }
+  | { kind: 'many'; items: { url: string; title: string }[]; categoryId?: string; rid?: string; newFolder?: NewFolder };
+
+function readNewFolder(name: unknown, parentId: unknown): NewFolder | undefined {
+  if (typeof name !== 'string' || !name.trim()) return undefined;
+  return { name: name.trim().slice(0, 40), parentId: typeof parentId === 'string' && parentId ? parentId : null };
+}
+
+/** "__inbox" = a pessoa escolheu a Caixa de entrada de propósito na extensão */
+const INBOX_CHOICE = '__inbox';
 
 /** Avisa a extensão (via content script) que um pedido foi gravado, para ela fechar as abas */
 function notifyExtension(rid?: string) {
@@ -51,7 +67,13 @@ function readHashPayload(): ImportState {
     const items = data.items
       .filter((it: unknown): it is { url: string; title?: string } => typeof (it as { url?: unknown })?.url === 'string')
       .map((it: { url: string; title?: string }) => ({ url: it.url, title: typeof it.title === 'string' ? it.title : '' }));
-    return { items, rid: typeof data.rid === 'string' ? data.rid : undefined };
+    return {
+      items,
+      rid: typeof data.rid === 'string' ? data.rid : undefined,
+      categoryId: typeof data.categoryId === 'string' ? data.categoryId : undefined,
+      auto: data.auto === true,
+      newFolder: readNewFolder(data.newFolder?.name, data.newFolder?.parentId),
+    };
   } catch {
     return null;
   }
@@ -70,6 +92,7 @@ export function Dashboard({ user }: { user: User }) {
   const [newParentId, setNewParentId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<ReadonlySet<string>>(new Set());
   const [importState, setImportState] = useState<ImportState>(null);
+  const [autoSave, setAutoSave] = useState<AutoSave | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extOpen, setExtOpen] = useState(false);
   const [dropActive, setDropActive] = useState(false);
@@ -88,10 +111,25 @@ export function Dashboard({ user }: { user: User }) {
 
   const catById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const catOf = useCallback((l: LinkItem) => (l.categoryId ? catById.get(l.categoryId) ?? null : null), [catById]);
+  // Nome das gavetas recém-criadas, antes de chegarem pela sincronização
+  const freshLabels = useRef(new Map<string, string>());
   const catLabel = (id: string | null) => {
     const c = id ? catById.get(id) : null;
-    return c ? `${c.emoji} ${c.name}` : 'Caixa de entrada';
+    return c ? `${c.emoji} ${c.name}` : (id && freshLabels.current.get(id)) || 'Caixa de entrada';
   };
+
+  /** Cria uma gaveta na hora (ou reaproveita uma com o mesmo nome no mesmo lugar) */
+  function createFolder(name: string, parentId: string | null): string {
+    const parent = parentId && catById.has(parentId) ? parentId : null;
+    const same = categories.find((c) => (c.parentId ?? null) === parent && c.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (same) return same.id;
+    const now = Date.now();
+    const color = CATEGORY_COLORS[Math.floor(Math.random() * CATEGORY_COLORS.length)];
+    const id = addCategory(uid, { name: name.trim(), emoji: '📁', color, parentId: parent, order: now, createdAt: now });
+    freshLabels.current.set(id, `📁 ${name.trim()}`);
+    showToast(`Gaveta "${name.trim()}" criada`);
+    return id;
+  }
 
   const currentCategory = catById.get(view) ?? null;
   const isSearching = search.trim().length > 0;
@@ -109,14 +147,30 @@ export function Dashboard({ user }: { user: User }) {
     const fromHash = readHashPayload();
     // Print da aba tirado pela extensão: /?add=...#thumb=data:image/jpeg;base64,...
     const shot = window.location.hash.startsWith('#thumb=') ? decodeURIComponent(window.location.hash.slice('#thumb='.length)) : null;
-    if (add) {
+    const chosen = p.get('cat') ?? undefined;
+    const newFolder = readNewFolder(p.get('newName'), p.get('newParent'));
+    if (add && (p.get('auto') === '1' || newFolder)) {
+      setAutoSave({
+        kind: 'one',
+        url: add,
+        title: p.get('title') ?? '',
+        categoryId: chosen,
+        rid: p.get('rid') ?? undefined,
+        closeAfter: p.get('popup') === '1' || Boolean(window.opener),
+        thumb: isValidThumb(shot) ? shot : undefined,
+        edit: p.get('auto') !== '1',
+        newFolder,
+      });
+    } else if (add) {
       setLinkModal({
         mode: 'new',
-        initial: { url: add, title: p.get('title') ?? '' },
+        initial: { url: add, title: p.get('title') ?? '', categoryId: chosen && chosen !== INBOX_CHOICE ? chosen : null },
         rid: p.get('rid') ?? undefined,
         closeAfter: p.get('popup') === '1' || Boolean(window.opener),
         thumb: isValidThumb(shot) ? shot : undefined,
       });
+    } else if (fromHash?.auto && fromHash.items) {
+      setAutoSave({ kind: 'many', items: fromHash.items, categoryId: fromHash.categoryId, rid: fromHash.rid, newFolder: fromHash.newFolder });
     } else if (fromHash) {
       setImportState(fromHash);
     }
@@ -154,6 +208,13 @@ export function Dashboard({ user }: { user: User }) {
   }, [links, catById]);
 
   const existingKeys = useMemo(() => new Set(links.map((l) => urlKey(l.url))), [links]);
+
+  // Manda a lista de gavetas para a extensão mostrar no seletor dela
+  useEffect(() => {
+    if (loading) return;
+    const items = flattenTree(categories).map(({ category: c, depth }) => ({ id: c.id, name: c.name, emoji: c.emoji, depth, parentId: c.parentId ?? null }));
+    window.postMessage({ source: 'gaveta-app', type: 'categories', autoGroup, items }, window.location.origin);
+  }, [categories, autoGroup, loading]);
 
   const visible = useMemo(() => {
     const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
@@ -257,6 +318,44 @@ export function Dashboard({ user }: { user: User }) {
     else setQuick('');
   }
 
+  // Guarda direto o que a extensão mandou, assim que os dados carregarem
+  useEffect(() => {
+    if (loading || !autoSave) return;
+    setAutoSave(null);
+    const created = autoSave.newFolder ? createFolder(autoSave.newFolder.name, autoSave.newFolder.parentId) : null;
+    const keepInbox = !created && autoSave.categoryId === INBOX_CHOICE;
+    const known = created ?? (autoSave.categoryId && catById.has(autoSave.categoryId) ? autoSave.categoryId : null);
+    if (autoSave.categoryId && !created && !keepInbox && !known) showToast('A gaveta escolhida não existe mais. Usando o padrão.');
+
+    if (autoSave.kind === 'one' && autoSave.edit) {
+      setLinkModal({ mode: 'new', initial: { url: autoSave.url, title: autoSave.title, categoryId: known }, rid: autoSave.rid, closeAfter: autoSave.closeAfter, thumb: autoSave.thumb });
+      return;
+    }
+
+    if (autoSave.kind === 'one') {
+      const res = saveNew(autoSave.url, autoSave.title, '', known, keepInbox, autoSave.thumb);
+      if (res.error === null) finishExternal(res.saved, autoSave.rid, autoSave.closeAfter);
+      else if (res.duplicate) {
+        showToast(res.error);
+        finishExternal(Promise.resolve(), autoSave.rid, autoSave.closeAfter);
+      } else {
+        // Não deu para guardar direto: abre o formulário para a pessoa ver o problema
+        setLinkModal({ mode: 'new', initial: { url: autoSave.url, title: autoSave.title, categoryId: known }, rid: autoSave.rid, closeAfter: autoSave.closeAfter, thumb: autoSave.thumb });
+      }
+      return;
+    }
+
+    const fresh = cleanItems(autoSave.items).filter((it) => !existingKeys.has(urlKey(it.url)));
+    handleImport(fresh, known, keepInbox)
+      .then(() => notifyExtension(autoSave.rid))
+      .catch(() => {
+        // Se falhar, a lista continua na tela e nenhuma aba é fechada
+        showToast('Não deu para guardar direto. Confira a lista e tente de novo.');
+        setImportState({ items: autoSave.items, rid: autoSave.rid, categoryId: known ?? undefined });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, autoSave]);
+
   /** Depois de gravado no servidor: avisa a extensão e fecha a janelinha, se veio de uma */
   function finishExternal(saved: Promise<void>, rid?: string, closeAfter?: boolean) {
     saved
@@ -299,12 +398,12 @@ export function Dashboard({ user }: { user: User }) {
     return null;
   }
 
-  async function handleImport(items: { url: string; title: string }[], categoryId: string | null) {
+  async function handleImport(items: { url: string; title: string }[], categoryId: string | null, keepInbox = false) {
     if (!items.length) {
       showToast('Tudo isso já estava guardado');
       return;
     }
-    const grouped = categoryId === null && autoGroup;
+    const grouped = categoryId === null && autoGroup && !keepInbox;
     const plan = grouped ? planGrouping(items.map((it) => it.url), categories) : null;
     if (plan) await createCategories(uid, plan.newCategories);
     const now = Date.now();
@@ -579,6 +678,7 @@ export function Dashboard({ user }: { user: User }) {
       {linkModal && (
         <LinkModal
           autoGroup={autoGroup}
+          onCreateCategory={createFolder}
           key={linkModal.mode + (linkModal.initial.id ?? '')}
           mode={linkModal.mode}
           initial={linkModal.initial}
@@ -621,10 +721,11 @@ export function Dashboard({ user }: { user: User }) {
       {importState && (
         <ImportModal
           autoGroup={autoGroup}
+          onCreateCategory={createFolder}
           loading={loading}
           categories={categories}
           existingKeys={existingKeys}
-          defaultCategoryId={currentCategory?.id ?? null}
+          defaultCategoryId={importState.categoryId ?? currentCategory?.id ?? null}
           initialItems={importState.items}
           onImport={async (items, categoryId) => {
             await handleImport(items, categoryId);

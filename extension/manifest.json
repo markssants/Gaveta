@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Gaveta",
   "description": "Guarde a aba atual, ou todas as abas da janela, no seu Gaveta.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "icons": {
     "16": "icons/16.png",
     "32": "icons/32.png",

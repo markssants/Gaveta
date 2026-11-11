@@ -75,6 +75,57 @@
       #setup p {
         margin: 0;
       }
+      .folder {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+      .folder-row {
+        display: flex;
+        gap: 6px;
+      }
+      .btn.mini {
+        width: auto;
+        height: 36px;
+        padding: 0 10px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .new-folder {
+        display: grid;
+        gap: 6px;
+        margin-top: 6px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+      .new-folder input[type='text'] {
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font: inherit;
+        outline: 0;
+      }
+      .new-folder input[type='text']:focus {
+        border-color: var(--accent);
+      }
+      .folder select {
+        width: 100%;
+        height: 36px;
+        padding: 0 8px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+      }
+      .edit-first {
+        justify-self: center;
+      }
       [hidden] {
         display: none !important;
       }
@@ -102,9 +153,23 @@
           <span class="muted small" id="host"></span>
         </div>
       </div>
+      <div class="folder">
+        <span class="muted small">Guardar em</span>
+        <div class="folder-row">
+          <select id="folder" aria-label="Guardar em"></select>
+          <button class="btn mini" id="newFolderBtn" title="Nova gaveta ou subpasta" aria-expanded="false">+ Nova</button>
+        </div>
+        <div id="newFolder" class="new-folder" hidden>
+          <input type="text" id="newFolderName" placeholder="Nome da nova gaveta" maxlength="40" />
+          <label class="check small" id="asSubRow"><input type="checkbox" id="asSub" /> <span id="asSubLabel"></span></label>
+          <span class="muted small">Ela é criada quando você guardar.</span>
+        </div>
+      </div>
+      <p class="muted small" id="folderHint" hidden style="margin: -4px 0 10px">Abra o Gaveta uma vez para carregar suas gavetas aqui.</p>
       <div class="stack">
         <button class="btn primary" id="saveOne">Guardar esta aba</button>
         <button class="btn" id="saveAll">Guardar todas as abas desta janela</button>
+        <button class="link-btn edit-first" id="editFirst">Editar título e nota antes de guardar</button>
       </div>
       <div class="opts">
         <label class="check"><input type="checkbox" id="close" /> Fechar as abas depois de guardar</label>

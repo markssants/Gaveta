@@ -60,7 +60,7 @@ async function captureThumb(tabId) {
 }
 
 /** Abre a janelinha de "Guardar link" do Gaveta, já preenchida */
-async function saveOne({ url, title, tabId, close }) {
+async function saveOne({ url, title, tabId, close, categoryId, auto, newFolder }) {
   const s = await requireUrl();
   if (!s) return;
   const rid = crypto.randomUUID();
@@ -71,19 +71,27 @@ async function saveOne({ url, title, tabId, close }) {
   if (title) target.searchParams.set('title', title);
   target.searchParams.set('rid', rid);
   target.searchParams.set('popup', '1');
+  if (categoryId) target.searchParams.set('cat', categoryId);
+  if (auto) target.searchParams.set('auto', '1');
+  if (newFolder?.name) {
+    target.searchParams.set('newName', newFolder.name);
+    if (newFolder.parentId) target.searchParams.set('newParent', newFolder.parentId);
+  }
   // No hash, para o print não ir para o servidor na URL
   if (thumb) target.hash = 'thumb=' + encodeURIComponent(thumb);
 
-  const win = await chrome.windows.create({ url: target.href, type: 'popup', width: 520, height: 680, focused: true });
+  // Guardando direto, a janelinha só aparece por um instante
+  const size = auto ? { width: 420, height: 320 } : { width: 520, height: 680 };
+  const win = await chrome.windows.create({ url: target.href, type: 'popup', ...size, focused: true });
   await remember(rid, { tabIds: close && tabId != null ? [tabId] : [], popupWindowId: win.id });
 }
 
 /** Abre o Gaveta numa aba nova com a lista de abas para importar */
-async function saveMany({ tabs, close }) {
+async function saveMany({ tabs, close, categoryId, auto, newFolder }) {
   const s = await requireUrl();
   if (!s || !tabs.length) return;
   const rid = crypto.randomUUID();
-  const payload = { v: 1, rid, items: tabs.map((t) => ({ url: t.url, title: t.title || '' })) };
+  const payload = { v: 1, rid, categoryId, auto, newFolder, items: tabs.map((t) => ({ url: t.url, title: t.title || '' })) };
   const target = new URL(s.gavetaUrl);
   target.hash = 'gaveta=' + encodeURIComponent(JSON.stringify(payload));
 
@@ -95,7 +103,45 @@ async function saveActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const { gavetaUrl, closeAfterSave } = await getSettings();
   if (!isSavable(tab, gavetaUrl)) return;
-  await saveOne({ url: tab.url, title: tab.title, tabId: tab.id, close: closeAfterSave });
+  const { lastFolder } = await chrome.storage.local.get('lastFolder');
+  // Atalho: abre o formulário já com a última gaveta usada
+  await saveOne({ url: tab.url, title: tab.title, tabId: tab.id, close: closeAfterSave, categoryId: lastFolder });
+}
+
+/** Só aceita mensagens vindas do próprio site do Gaveta */
+async function fromGaveta(sender) {
+  const { gavetaUrl } = await getSettings();
+  try {
+    return Boolean(gavetaUrl) && new URL(sender.url).origin === gavetaUrl;
+  } catch {
+    return false;
+  }
+}
+
+/** Guarda a lista de gavetas que o site mandou, para o seletor do popup */
+async function onCategories(msg, sender) {
+  if (!(await fromGaveta(sender))) return;
+  const items = msg.items
+    .slice(0, 2000)
+    .filter((c) => typeof c?.id === 'string' && typeof c?.name === 'string')
+    .map((c) => ({
+      id: c.id,
+      name: c.name.slice(0, 80),
+      emoji: String(c.emoji ?? '').slice(0, 8),
+      depth: Math.min(Number(c.depth) || 0, 10),
+      parentId: typeof c.parentId === 'string' ? c.parentId : null,
+    }));
+  const update = { folders: { items, autoGroup: msg.autoGroup === true, at: Date.now() } };
+  // Gaveta criada pelo popup: quando ela aparece na lista, vira a escolha padrão
+  const { pendingFolder } = await chrome.storage.local.get('pendingFolder');
+  if (pendingFolder) {
+    const match = items.find((c) => c.parentId === pendingFolder.parentId && c.name.trim().toLowerCase() === pendingFolder.name.toLowerCase());
+    if (match) {
+      update.lastFolder = match.id;
+      await chrome.storage.local.remove('pendingFolder');
+    }
+  }
+  await chrome.storage.local.set(update);
 }
 
 async function onSaved(rid, sender) {
@@ -117,6 +163,7 @@ async function onSaved(rid, sender) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const run = async () => {
     if (msg?.source === 'gaveta-app' && msg.type === 'saved') return onSaved(msg.rid, sender);
+    if (msg?.source === 'gaveta-app' && msg.type === 'categories') return onCategories(msg, sender);
     if (msg?.type === 'save-one') return saveOne(msg);
     if (msg?.type === 'save-many') return saveMany(msg);
   };

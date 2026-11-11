@@ -104,3 +104,16 @@ export function download(filename: string, content: string, type = 'application/
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+
+/** Normaliza e remove repetidos de uma lista de links (ex.: abas vindas da extensão) */
+export function cleanItems(items: { url: string; title: string }[]): { url: string; title: string }[] {
+  const seen = new Set<string>();
+  const out: { url: string; title: string }[] = [];
+  for (const it of items) {
+    const url = normalizeUrl(it.url);
+    if (!url || seen.has(urlKey(url))) continue;
+    seen.add(urlKey(url));
+    out.push({ url, title: it.title.trim() });
+  }
+  return out;
+}
