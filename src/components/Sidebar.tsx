@@ -32,6 +32,13 @@ type Props = {
 export function Sidebar(p: Props) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [rootOver, setRootOver] = useState(false);
+  // Seção "Geral" pode ser recolhida para dar foco nas gavetas
+  const [generalOpen, setGeneralOpen] = useState(() => readFlag(GENERAL_KEY) !== 'closed');
+  function toggleGeneral() {
+    const next = !generalOpen;
+    setGeneralOpen(next);
+    writeFlag(GENERAL_KEY, next ? 'open' : 'closed');
+  }
   const { roots, children } = useMemo(() => buildTree(p.categories), [p.categories]);
   const totals = useMemo(() => totalsOf(p.categories, p.counts.byCat), [p.categories, p.counts.byCat]);
   // A gaveta aberta fica sempre visível, mesmo dentro de uma pasta recolhida
@@ -92,7 +99,15 @@ export function Sidebar(p: Props) {
     <>
       <div className={'nav-scrim' + (p.open ? ' show' : '')} onClick={p.onClose} />
       <nav className={'sidebar' + (p.open ? ' open' : '')} aria-label="Gavetas">
-        <div className="nav-group">
+        <div className="nav-heading nav-section-head">
+          <button className="nav-section-toggle" onClick={toggleGeneral} aria-expanded={generalOpen} aria-controls="nav-general">
+            <span className={'nav-section-chevron' + (generalOpen ? ' open' : '')}>
+              <Icon name="chevron" size={12} />
+            </span>
+            Geral
+          </button>
+        </div>
+        <div className="nav-group nav-general" id="nav-general" hidden={!generalOpen}>
           <NavItem active={p.view === VIEW_HOME} onClick={() => p.onSelect(VIEW_HOME)} icon={<Icon name="home" size={17} />} label="Início" count={0} hideCount />
           <NavItem active={p.view === VIEW_ALL} onClick={() => p.onSelect(VIEW_ALL)} icon={<Icon name="layers" size={17} />} label="Tudo" count={p.counts.total} />
           <NavItem
@@ -103,7 +118,7 @@ export function Sidebar(p: Props) {
             count={p.counts.inbox}
             dropTarget={null}
             onDropLink={p.onDropLink}
-              onDropUrl={p.onDropUrl}
+            onDropUrl={p.onDropUrl}
           />
           <NavItem active={p.view === VIEW_FAV} onClick={() => p.onSelect(VIEW_FAV)} icon={<Icon name="star" size={17} />} label="Favoritos" count={p.counts.fav} />
           <NavItem active={p.view === VIEW_LATER} onClick={() => p.onSelect(VIEW_LATER)} icon={<Icon name="clock" size={17} />} label="Ver depois" count={p.counts.later} />
@@ -164,6 +179,23 @@ export function Sidebar(p: Props) {
 }
 
 const COLLAPSED_KEY = 'gaveta-collapsed';
+const GENERAL_KEY = 'gaveta-general';
+
+function readFlag(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeFlag(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* sem armazenamento: vale só nesta sessão */
+  }
+}
 
 function readCollapsed(): Set<string> {
   try {

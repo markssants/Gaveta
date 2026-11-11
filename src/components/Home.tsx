@@ -37,26 +37,6 @@ export function Home({ categories, links, totals, renderCard, onOpenView, onNewC
 
   return (
     <div className="home">
-      <Section icon="layers" title="Gavetas">
-        <div className="subfolders">
-          {[...manual, ...sites.slice(0, MAX_SITES)].map((c) => (
-            <FolderTile
-              key={c.id}
-              category={c}
-              count={totals.get(c.id) ?? 0}
-              onOpen={() => onOpenView(c.id)}
-              onMoveLink={onMoveLink}
-              onMoveFolder={onMoveFolder}
-              canNest={canNest}
-            />
-          ))}
-          <button className="subfolder new" onClick={onNewCategory}>
-            <Icon name="plus" size={15} /> Nova gaveta
-          </button>
-        </div>
-        {sites.length > MAX_SITES && <p className="muted small home-note">Mais {sites.length - MAX_SITES} sites na barra lateral.</p>}
-      </Section>
-
       <Section icon="flag" title="Importante" count={important.length} onSeeAll={important.length > 8 ? () => onOpenView(VIEW_IMPORTANT) : undefined}>
         {important.length ? (
           <div className="grid">{important.slice(0, 8).map(renderCard)}</div>
@@ -70,6 +50,14 @@ export function Home({ categories, links, totals, renderCard, onOpenView, onNewC
           <div className="grid">{later.slice(0, 8).map(renderCard)}</div>
         ) : (
           <p className="home-empty">Marque um link com o relógio para ele aparecer aqui.</p>
+        )}
+      </Section>
+
+      <Section icon="star" title="Favoritos" count={favorites.length} onSeeAll={favorites.length > 4 ? () => onOpenView(VIEW_FAV) : undefined}>
+        {favorites.length ? (
+          <div className="grid">{favorites.slice(0, 4).map(renderCard)}</div>
+        ) : (
+          <p className="home-empty">Clique na estrela de um card para favoritar.</p>
         )}
       </Section>
 
@@ -99,12 +87,24 @@ export function Home({ categories, links, totals, renderCard, onOpenView, onNewC
         )}
       </Section>
 
-      <Section icon="star" title="Favoritos" count={favorites.length} onSeeAll={favorites.length > 4 ? () => onOpenView(VIEW_FAV) : undefined}>
-        {favorites.length ? (
-          <div className="grid">{favorites.slice(0, 4).map(renderCard)}</div>
-        ) : (
-          <p className="home-empty">Clique na estrela de um card para favoritar.</p>
-        )}
+      <Section icon="layers" title="Gavetas">
+        <div className="subfolders">
+          {[...manual, ...sites.slice(0, MAX_SITES)].map((c) => (
+            <FolderTile
+              key={c.id}
+              category={c}
+              count={totals.get(c.id) ?? 0}
+              onOpen={() => onOpenView(c.id)}
+              onMoveLink={onMoveLink}
+              onMoveFolder={onMoveFolder}
+              canNest={canNest}
+            />
+          ))}
+          <button className="subfolder new" onClick={onNewCategory}>
+            <Icon name="plus" size={15} /> Nova gaveta
+          </button>
+        </div>
+        {sites.length > MAX_SITES && <p className="muted small home-note">Mais {sites.length - MAX_SITES} sites na barra lateral.</p>}
       </Section>
     </div>
   );

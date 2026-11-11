@@ -507,7 +507,7 @@ kbd,
   opacity: 0.8;
 }
 body.dragging-link .nav-cats .nav-item,
-body.dragging-link .nav-group:first-child .nav-item:nth-child(3) {
+body.dragging-link .nav-general .nav-item:nth-child(3) {
   outline: 1px dashed var(--border-strong);
   outline-offset: -1px;
 }
@@ -1589,4 +1589,36 @@ em.muted {
 body.dragging-folder .nav-root {
   outline: 1px dashed var(--border-strong);
   outline-offset: 2px;
+}
+
+/* ---------- Seção "Geral" recolhível ---------- */
+.nav-section-head {
+  margin-top: 0;
+}
+.nav-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: -4px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.nav-section-toggle:hover {
+  color: var(--text);
+}
+.nav-section-chevron {
+  display: grid;
+  transition: transform 0.12s;
+}
+.nav-section-chevron.open {
+  transform: rotate(90deg);
+}
+.nav-general[hidden] {
+  display: none;
 }
