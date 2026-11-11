@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocFromCache,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -74,6 +75,11 @@ export function addLink(uid: string, data: NewLink): { id: string; saved: Promis
 
 export function updateLink(uid: string, id: string, patch: Partial<NewLink>) {
   return updateDoc(doc(linksCol(uid), id), patch);
+}
+
+/** Conta uma abertura do link (para "Mais visitados") */
+export function recordVisit(uid: string, id: string) {
+  return updateDoc(doc(linksCol(uid), id), { visits: increment(1), lastVisitedAt: Date.now() });
 }
 
 export function deleteLink(uid: string, id: string) {

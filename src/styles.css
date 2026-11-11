@@ -158,6 +158,12 @@ kbd,
 .icon-btn.danger:hover {
   color: var(--danger);
 }
+.icon-btn.later-on {
+  color: var(--accent);
+}
+.icon-btn.important-on {
+  color: var(--danger);
+}
 .icon-btn.fav-on {
   color: var(--star);
 }
@@ -501,7 +507,7 @@ kbd,
   opacity: 0.8;
 }
 body.dragging-link .nav-cats .nav-item,
-body.dragging-link .nav-group:first-child .nav-item:nth-child(2) {
+body.dragging-link .nav-group:first-child .nav-item:nth-child(3) {
   outline: 1px dashed var(--border-strong);
   outline-offset: -1px;
 }
@@ -722,13 +728,13 @@ body.dragging-link .nav-group:first-child .nav-item:nth-child(2) {
 .card:focus-within .card-actions {
   opacity: 1;
 }
-.card-actions .fav-on {
+.card-actions .is-on {
   opacity: 1;
 }
-.card:not(:hover):not(:focus-within) .card-actions:has(.fav-on) {
+.card:not(:hover):not(:focus-within) .card-actions:has(.is-on) {
   opacity: 1;
 }
-.card:not(:hover):not(:focus-within) .card-actions:has(.fav-on) > :not(.fav-on) {
+.card:not(:hover):not(:focus-within) .card-actions:has(.is-on) > :not(.is-on) {
   visibility: hidden;
 }
 
@@ -1075,7 +1081,7 @@ em.muted {
   .card-actions {
     opacity: 1;
   }
-  .card:not(:hover):not(:focus-within) .card-actions:has(.fav-on) > :not(.fav-on) {
+  .card:not(:hover):not(:focus-within) .card-actions:has(.is-on) > :not(.is-on) {
     visibility: visible;
   }
 }
@@ -1448,4 +1454,111 @@ em.muted {
 
 .quick-hint {
   margin: -8px 0 0;
+}
+
+/* ---------- Início ---------- */
+.home {
+  display: grid;
+  gap: 34px;
+}
+.home-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.home-head h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+.home-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.home-all {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--accent);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.home-all:hover {
+  background: var(--accent-soft);
+}
+.home .subfolders {
+  margin-bottom: 0;
+}
+.home-note {
+  margin: 10px 0 0;
+}
+.home-empty {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+.top-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 6px 14px;
+}
+.top-list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.top-list a:hover {
+  border-color: var(--accent);
+}
+.top-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+}
+.top-meta {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+@media (max-width: 560px) {
+  .top-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Com 5 botões no rodapé, a data some enquanto eles aparecem */
+.card:hover .card-time,
+.card:focus-within .card-time {
+  display: none;
 }

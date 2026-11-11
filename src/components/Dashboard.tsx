@@ -9,6 +9,7 @@ import {
   deleteLink,
   importLinks,
   moveLinks,
+  recordVisit,
   saveThumb,
   setAutoGroup,
   updateCategory,
@@ -28,7 +29,8 @@ import { LinkCard } from './LinkCard';
 import { LinkModal, type LinkDraft } from './LinkModal';
 import { SettingsModal } from './SettingsModal';
 import { ExtensionModal } from './ExtensionModal';
-import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_INBOX } from './Sidebar';
+import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_HOME, VIEW_IMPORTANT, VIEW_INBOX, VIEW_LATER } from './Sidebar';
+import { Home } from './Home';
 
 type LinkModalState =
   | { mode: 'new'; initial: Partial<LinkItem>; rid?: string; closeAfter?: boolean; thumb?: string }
@@ -44,6 +46,9 @@ type NewFolder = { name: string; parentId: string | null };
 type AutoSave =
   | { kind: 'one'; url: string; title: string; categoryId?: string; rid?: string; closeAfter: boolean; thumb?: string; edit: boolean; newFolder?: NewFolder }
   | { kind: 'many'; items: { url: string; title: string }[]; categoryId?: string; rid?: string; newFolder?: NewFolder };
+
+/** Telas que não são gavetas */
+const FIXED_VIEWS = [VIEW_HOME, VIEW_ALL, VIEW_INBOX, VIEW_FAV, VIEW_LATER, VIEW_IMPORTANT];
 
 function readNewFolder(name: unknown, parentId: unknown): NewFolder | undefined {
   if (typeof name !== 'string' || !name.trim()) return undefined;
@@ -83,7 +88,7 @@ export function Dashboard({ user }: { user: User }) {
   const uid = user.uid;
   const { categories, links, autoGroup, loading, error } = useUserData(uid);
 
-  const [view, setView] = useState(VIEW_ALL);
+  const [view, setView] = useState(VIEW_HOME);
   const [search, setSearch] = useState('');
   const [quick, setQuick] = useState('');
   const [quickBusy, setQuickBusy] = useState(false);
@@ -141,7 +146,7 @@ export function Dashboard({ user }: { user: User }) {
   const justCreated = useRef(new Set<string>());
   useEffect(() => {
     if (catById.has(view)) justCreated.current.delete(view);
-    else if (!loading && ![VIEW_ALL, VIEW_INBOX, VIEW_FAV].includes(view) && !justCreated.current.has(view)) setView(VIEW_ALL);
+    else if (!loading && !FIXED_VIEWS.includes(view) && !justCreated.current.has(view)) setView(VIEW_HOME);
   }, [view, catById, loading]);
 
   // Abertura via bookmarklet/extensão: /?add=URL&title=TÍTULO[&rid=ID&popup=1]
@@ -203,13 +208,17 @@ export function Dashboard({ user }: { user: User }) {
     const byCat = new Map<string, number>();
     let inbox = 0;
     let fav = 0;
+    let later = 0;
+    let important = 0;
     for (const l of links) {
+      if (l.later) later++;
+      if (l.important) important++;
       const c = l.categoryId && catById.has(l.categoryId) ? l.categoryId : null;
       if (c) byCat.set(c, (byCat.get(c) ?? 0) + 1);
       else inbox++;
       if (l.favorite) fav++;
     }
-    return { total: links.length, inbox, fav, byCat };
+    return { total: links.length, inbox, fav, later, important, byCat };
   }, [links, catById]);
 
   const existingKeys = useMemo(() => new Set(links.map((l) => urlKey(l.url))), [links]);
@@ -235,6 +244,9 @@ export function Dashboard({ user }: { user: User }) {
       }
       if (view === VIEW_ALL) return true;
       if (view === VIEW_FAV) return l.favorite;
+      if (view === VIEW_LATER) return Boolean(l.later);
+      if (view === VIEW_IMPORTANT) return Boolean(l.important);
+      if (view === VIEW_HOME) return false; // o Início tem layout próprio
       const c = catOf(l);
       return view === VIEW_INBOX ? c === null : c?.id === view;
     });
@@ -521,14 +533,39 @@ export function Dashboard({ user }: { user: User }) {
         ? { emoji: null, title: 'Caixa de entrada' }
         : view === VIEW_FAV
           ? { emoji: null, title: 'Favoritos' }
-          : { emoji: currentCategory?.emoji, title: currentCategory?.name ?? '' };
+          : view === VIEW_LATER
+            ? { emoji: null, title: 'Ver depois' }
+            : view === VIEW_IMPORTANT
+              ? { emoji: null, title: 'Importante' }
+            : view === VIEW_HOME
+              ? { emoji: null, title: 'Início' }
+              : { emoji: currentCategory?.emoji, title: currentCategory?.name ?? '' };
 
   const inFolder = Boolean(currentCategory) && !isSearching;
   const ancestors = currentCategory ? ancestorsOf(categories, currentCategory.id) : [];
   const subfolders = currentCategory ? categories.filter((c) => c.parentId === currentCategory.id) : [];
   const totals = totalsOf(categories, counts.byCat);
 
-  const showCategoryChip = isSearching || view === VIEW_ALL || view === VIEW_FAV;
+  const showCategoryChip = isSearching || [VIEW_ALL, VIEW_FAV, VIEW_LATER, VIEW_IMPORTANT, VIEW_HOME].includes(view);
+  const onHome = view === VIEW_HOME && !isSearching;
+
+  const renderCard = (l: LinkItem) => (
+    <LinkCard
+      key={l.id}
+      uid={uid}
+      link={l}
+      category={catOf(l)}
+      showCategory={showCategoryChip}
+      refreshing={refreshing.has(l.id)}
+      onRefreshThumb={() => void refreshThumb(l)}
+      onToggleFavorite={() => void updateLink(uid, l.id, { favorite: !l.favorite })}
+      onToggleLater={() => void updateLink(uid, l.id, { later: !l.later })}
+      onToggleImportant={() => void updateLink(uid, l.id, { important: !l.important })}
+      onVisit={() => void recordVisit(uid, l.id)}
+      onEdit={() => setLinkModal({ mode: 'edit', initial: l })}
+      onDelete={() => removeLink(l)}
+    />
+  );
 
   return (
     <div className="app">
@@ -624,7 +661,7 @@ export function Dashboard({ user }: { user: User }) {
                 </span>
               )}
               <h1>{heading.title}</h1>
-              <span className="title-count">{visible.length}</span>
+              {!onHome && <span className="title-count">{visible.length}</span>}
               {currentCategory && !isSearching && (
                 <button className="icon-btn sm" onClick={() => setCatModal(currentCategory)} title="Editar gaveta">
                   <Icon name="edit" size={14} />
@@ -699,23 +736,21 @@ export function Dashboard({ user }: { user: User }) {
                 <div key={i} className="card skeleton" />
               ))}
             </div>
+          ) : onHome ? (
+            <Home
+              categories={categories}
+              links={links}
+              totals={totals}
+              renderCard={renderCard}
+              onOpenView={(v) => {
+                setView(v);
+                setSearch('');
+              }}
+              onNewCategory={() => openNewCategory()}
+              onVisit={(l) => void recordVisit(uid, l.id)}
+            />
           ) : visible.length ? (
-            <div className="grid">
-              {visible.map((l) => (
-                <LinkCard
-                  key={l.id}
-                  uid={uid}
-                  link={l}
-                  category={catOf(l)}
-                  showCategory={showCategoryChip}
-                  refreshing={refreshing.has(l.id)}
-                  onRefreshThumb={() => void refreshThumb(l)}
-                  onToggleFavorite={() => void updateLink(uid, l.id, { favorite: !l.favorite })}
-                  onEdit={() => setLinkModal({ mode: 'edit', initial: l })}
-                  onDelete={() => removeLink(l)}
-                />
-              ))}
-            </div>
+            <div className="grid">{visible.map(renderCard)}</div>
           ) : (
             <EmptyState
               searching={isSearching}
@@ -867,6 +902,10 @@ function EmptyState({
       ? 'Caixa de entrada zerada. Tudo organizado!'
       : view === VIEW_FAV
         ? 'Nenhum favorito ainda. Clique na estrela de um card.'
+        : view === VIEW_LATER
+          ? 'Nada para ver depois. Clique no relógio de um card para marcar.'
+          : view === VIEW_IMPORTANT
+            ? 'Nada marcado como importante. Clique na bandeira de um card.'
         : 'Nenhum link nesta gaveta. Cole um acima ou arraste cards para cá pela barra lateral.';
   return (
     <div className="empty">

@@ -27,6 +27,14 @@ const PATHS = {
       <path d="M21 3v5h-5" />
     </>
   ),
+  home: <path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z" />,
+  flag: <path d="M5 21V4c3-2 6 2 9 0 2-1.3 4-1 6 0v10c-2-1-4-1.3-6 0-3 2-6-2-9 0" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
   chevron: <path d="m9 6 6 6-6 6" />,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   x: <path d="M18 6 6 18M6 6l12 12" />,

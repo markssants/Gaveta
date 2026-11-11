@@ -19,6 +19,13 @@ export type LinkItem = {
   /** null = Caixa de entrada */
   categoryId: string | null;
   favorite: boolean;
+  /** Marcado como "Ver depois" */
+  later?: boolean;
+  /** Marcado como "Importante" */
+  important?: boolean;
+  /** Quantas vezes foi aberto pelo Gaveta */
+  visits?: number;
+  lastVisitedAt?: number;
   createdAt: number;
   /** A miniatura fica em users/{uid}/thumbs/{id}, gravada ao salvar */
   hasThumb?: boolean;

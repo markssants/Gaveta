@@ -14,11 +14,14 @@ type Props = {
   refreshing: boolean;
   onRefreshThumb: () => void;
   onToggleFavorite: () => void;
+  onToggleLater: () => void;
+  onToggleImportant: () => void;
+  onVisit: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
 
-export function LinkCard({ uid, link, category, showCategory, refreshing, onRefreshThumb, onToggleFavorite, onEdit, onDelete }: Props) {
+export function LinkCard({ uid, link, category, showCategory, refreshing, onRefreshThumb, onToggleFavorite, onToggleLater, onToggleImportant, onVisit, onEdit, onDelete }: Props) {
   const host = hostOf(link.url);
   const style = category ? ({ '--cat': category.color } as CSSProperties) : undefined;
 
@@ -34,7 +37,15 @@ export function LinkCard({ uid, link, category, showCategory, refreshing, onRefr
       }}
       onDragEnd={() => document.body.classList.remove('dragging-link')}
     >
-      <a className="card-main" href={link.url} target="_blank" rel="noopener noreferrer" draggable={false}>
+      <a
+        className="card-main"
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        draggable={false}
+        onClick={onVisit}
+        onAuxClick={(e) => e.button === 1 && onVisit()}
+      >
         <Thumb uid={uid} link={link} />
         <div className="card-top">
           <Favicon url={link.url} />
@@ -70,7 +81,23 @@ export function LinkCard({ uid, link, category, showCategory, refreshing, onRefr
         <span className="card-time">{relTime(link.createdAt)}</span>
         <div className="card-actions">
           <button
-            className={'icon-btn sm' + (link.favorite ? ' fav-on' : '')}
+            className={'icon-btn sm' + (link.later ? ' later-on is-on' : '')}
+            onClick={onToggleLater}
+            title={link.later ? 'Tirar de Ver depois' : 'Ver depois'}
+            aria-pressed={Boolean(link.later)}
+          >
+            <Icon name="clock" size={16} />
+          </button>
+          <button
+            className={'icon-btn sm' + (link.important ? ' important-on is-on' : '')}
+            onClick={onToggleImportant}
+            title={link.important ? 'Tirar de Importante' : 'Importante'}
+            aria-pressed={Boolean(link.important)}
+          >
+            <Icon name="flag" size={15} filled={link.important} />
+          </button>
+          <button
+            className={'icon-btn sm' + (link.favorite ? ' fav-on is-on' : '')}
             onClick={onToggleFavorite}
             title={link.favorite ? 'Tirar dos favoritos' : 'Favoritar'}
             aria-pressed={link.favorite}

@@ -6,6 +6,7 @@ Painel pessoal para salvar links organizados por categorias ("gavetas"), feito p
 
 ## Funcionalidades
 
+- **Início**: atalhos para as gavetas, links mais visitados, alguns favoritos e as listas **Importante** (bandeira) e **Ver depois** (relógio), marcadas pelos ícones de cada card
 - **Gavetas** com nome, emoji e cor, além de **Caixa de entrada** (links ainda não organizados) e **Favoritos**
 - **Guardar rápido**: cole um ou vários links de uma vez (um por linha ou separados por espaço) e aperte Enter; o título da página é buscado automaticamente
 - **O título fica congelado**: ele é gravado no momento em que você salva e nunca é atualizado depois. Se um vídeo for removido, o card continua mostrando o nome original. Vídeos do YouTube e do Vimeo são salvos como `Título · Canal`

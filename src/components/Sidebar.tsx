@@ -8,10 +8,13 @@ import { Icon } from './Icon';
 export const VIEW_ALL = '__all';
 export const VIEW_INBOX = '__inbox';
 export const VIEW_FAV = '__fav';
+export const VIEW_HOME = '__home';
+export const VIEW_LATER = '__later';
+export const VIEW_IMPORTANT = '__important';
 
 type Props = {
   categories: Category[];
-  counts: { total: number; inbox: number; fav: number; byCat: Map<string, number> };
+  counts: { total: number; inbox: number; fav: number; later: number; important: number; byCat: Map<string, number> };
   view: string;
   open: boolean;
   onSelect: (view: string) => void;
@@ -84,6 +87,7 @@ export function Sidebar(p: Props) {
       <div className={'nav-scrim' + (p.open ? ' show' : '')} onClick={p.onClose} />
       <nav className={'sidebar' + (p.open ? ' open' : '')} aria-label="Gavetas">
         <div className="nav-group">
+          <NavItem active={p.view === VIEW_HOME} onClick={() => p.onSelect(VIEW_HOME)} icon={<Icon name="home" size={17} />} label="Início" count={0} hideCount />
           <NavItem active={p.view === VIEW_ALL} onClick={() => p.onSelect(VIEW_ALL)} icon={<Icon name="layers" size={17} />} label="Tudo" count={p.counts.total} />
           <NavItem
             active={p.view === VIEW_INBOX}
@@ -96,6 +100,8 @@ export function Sidebar(p: Props) {
               onDropUrl={p.onDropUrl}
           />
           <NavItem active={p.view === VIEW_FAV} onClick={() => p.onSelect(VIEW_FAV)} icon={<Icon name="star" size={17} />} label="Favoritos" count={p.counts.fav} />
+          <NavItem active={p.view === VIEW_LATER} onClick={() => p.onSelect(VIEW_LATER)} icon={<Icon name="clock" size={17} />} label="Ver depois" count={p.counts.later} />
+          <NavItem active={p.view === VIEW_IMPORTANT} onClick={() => p.onSelect(VIEW_IMPORTANT)} icon={<Icon name="flag" size={17} />} label="Importante" count={p.counts.important} />
         </div>
 
         <div className="nav-heading">
@@ -151,6 +157,7 @@ function NavItem({
   icon,
   label,
   count,
+  hideCount,
   depth,
   expanded,
   onToggle,
@@ -165,6 +172,7 @@ function NavItem({
   icon: ReactNode;
   label: string;
   count: number;
+  hideCount?: boolean;
   /** Presente nos itens da árvore de gavetas */
   depth?: number;
   /** undefined = não tem subpastas */
@@ -214,7 +222,7 @@ function NavItem({
       <button className="nav-btn" onClick={onClick}>
         <span className="nav-icon">{icon}</span>
         <span className="nav-label">{label}</span>
-        <span className="nav-count">{count}</span>
+        {!hideCount && <span className="nav-count">{count}</span>}
       </button>
       {onEdit && (
         <div className="nav-actions">
