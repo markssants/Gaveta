@@ -1562,3 +1562,31 @@ em.muted {
 .card:focus-within .card-time {
   display: none;
 }
+
+/* ---------- Arrastar gavetas ---------- */
+.subfolder {
+  cursor: pointer;
+}
+.subfolder[draggable='true']:active {
+  cursor: grabbing;
+}
+.subfolder.drop-over,
+.crumbs button.drop-over,
+.nav-heading.drop-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.nav-heading {
+  border-radius: 7px;
+  transition: background 0.12s;
+}
+.crumbs button {
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: 6px;
+}
+body.dragging-folder .nav-root {
+  outline: 1px dashed var(--border-strong);
+  outline-offset: 2px;
+}

@@ -12,7 +12,7 @@ Painel pessoal para salvar links organizados por categorias ("gavetas"), feito p
 - **O título fica congelado**: ele é gravado no momento em que você salva e nunca é atualizado depois. Se um vídeo for removido, o card continua mostrando o nome original. Vídeos do YouTube e do Vimeo são salvos como `Título · Canal`
 - **Importar abas em massa**: cole uma lista de links (um por linha, ou no formato do OneTab `url | título`). Links repetidos são ignorados
 - **Miniatura congelada**: a imagem é gravada no momento em que você salva e só muda se você clicar no ícone de recarregar do card. A extensão tira um print da aba atual; nos outros casos, o Gaveta usa a imagem de preview do site (no YouTube e no Vimeo, a capa do vídeo)
-- **Subpastas**: crie gavetas dentro de gavetas, em quantos níveis quiser. Ao excluir uma, os links e subpastas dela sobem um nível
+- **Subpastas**: crie gavetas dentro de gavetas, em quantos níveis quiser. Arraste uma gaveta para cima de outra para colocá-la dentro, para o caminho no topo para subir de nível, ou para o título "Gavetas" da barra lateral para virar gaveta principal. Ao excluir uma, os links e subpastas dela sobem um nível
 - **Agrupamento automático por site** (ligue nas configurações): links guardados sem escolher gaveta vão sozinhos para a gaveta do site, como YouTube, e as gavetas criadas assim ficam na seção **Sites** da barra lateral
 - **Arrastar e soltar**:
   - arraste um card para uma gaveta na barra lateral para mover o link

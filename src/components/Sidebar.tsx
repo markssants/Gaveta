@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import type { Category } from '../lib/types';
-import { DRAG_LINK } from '../lib/types';
+import { DRAG_FOLDER, DRAG_LINK, dragState } from '../lib/types';
 import { ancestorsOf, buildTree, totalsOf } from '../lib/tree';
 import { Favicon } from './Favicon';
 import { Icon } from './Icon';
@@ -25,10 +25,13 @@ type Props = {
   onDropUrl: (url: string, categoryId: string | null) => void;
   onClose: () => void;
   onOpenExtension: () => void;
+  onMoveFolder: (folderId: string, parentId: string | null) => void;
+  canNest: (folderId: string | null, parentId: string | null) => boolean;
 };
 
 export function Sidebar(p: Props) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [rootOver, setRootOver] = useState(false);
   const { roots, children } = useMemo(() => buildTree(p.categories), [p.categories]);
   const totals = useMemo(() => totalsOf(p.categories, p.counts.byCat), [p.categories, p.counts.byCat]);
   // A gaveta aberta fica sempre visível, mesmo dentro de uma pasta recolhida
@@ -76,6 +79,9 @@ export function Sidebar(p: Props) {
           dropTarget={c.id}
           onDropLink={p.onDropLink}
           onDropUrl={p.onDropUrl}
+          folderId={c.id}
+          onMoveFolder={p.onMoveFolder}
+          canNest={p.canNest}
         />
         {expanded && kids.map((k) => renderNode(k, depth + 1))}
       </Fragment>
@@ -104,7 +110,23 @@ export function Sidebar(p: Props) {
           <NavItem active={p.view === VIEW_IMPORTANT} onClick={() => p.onSelect(VIEW_IMPORTANT)} icon={<Icon name="flag" size={17} />} label="Importante" count={p.counts.important} />
         </div>
 
-        <div className="nav-heading">
+        <div
+          className={'nav-heading nav-root' + (rootOver ? ' drop-over' : '')}
+          title="Solte uma gaveta aqui para ela virar gaveta principal"
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes(DRAG_FOLDER) || !p.canNest(dragState.folderId, null)) return;
+            e.preventDefault();
+            setRootOver(true);
+          }}
+          onDragLeave={() => setRootOver(false)}
+          onDrop={(e) => {
+            setRootOver(false);
+            const folderId = e.dataTransfer.getData(DRAG_FOLDER);
+            if (!folderId) return;
+            e.preventDefault();
+            p.onMoveFolder(folderId, null);
+          }}
+        >
           <span>Gavetas</span>
           <button className="icon-btn sm" onClick={() => p.onNewCategory()} title="Nova gaveta" aria-label="Nova gaveta">
             <Icon name="plus" size={16} />
@@ -166,6 +188,9 @@ function NavItem({
   dropTarget,
   onDropLink,
   onDropUrl,
+  folderId,
+  onMoveFolder,
+  canNest,
 }: {
   active: boolean;
   onClick: () => void;
@@ -183,16 +208,34 @@ function NavItem({
   dropTarget?: string | null;
   onDropLink?: Props['onDropLink'];
   onDropUrl?: Props['onDropUrl'];
+  /** Gavetas da árvore podem ser arrastadas para dentro de outras */
+  folderId?: string;
+  onMoveFolder?: Props['onMoveFolder'];
+  canNest?: Props['canNest'];
 }) {
   const [over, setOver] = useState(false);
   const droppable = dropTarget !== undefined;
 
+  const acceptsFolder = (e: DragEvent) =>
+    Boolean(folderId) && e.dataTransfer.types.includes(DRAG_FOLDER) && Boolean(canNest?.(dragState.folderId, folderId!));
   const accepts = (e: DragEvent) =>
-    droppable && (e.dataTransfer.types.includes(DRAG_LINK) || e.dataTransfer.types.includes('text/uri-list'));
+    acceptsFolder(e) || (droppable && (e.dataTransfer.types.includes(DRAG_LINK) || e.dataTransfer.types.includes('text/uri-list')));
 
   return (
     <div
       className={'nav-item' + (active ? ' active' : '') + (over ? ' drop-over' : '') + (depth !== undefined ? ' tree' : '')}
+      draggable={Boolean(folderId)}
+      onDragStart={(e) => {
+        if (!folderId) return;
+        e.dataTransfer.setData(DRAG_FOLDER, folderId);
+        e.dataTransfer.effectAllowed = 'move';
+        dragState.folderId = folderId;
+        document.body.classList.add('dragging-folder');
+      }}
+      onDragEnd={() => {
+        dragState.folderId = null;
+        document.body.classList.remove('dragging-folder');
+      }}
       style={depth !== undefined ? ({ '--depth': depth } as CSSProperties) : undefined}
       onDragOver={(e) => {
         if (!accepts(e)) return;
@@ -206,6 +249,11 @@ function NavItem({
         e.preventDefault();
         e.stopPropagation();
         setOver(false);
+        const movedFolder = e.dataTransfer.getData(DRAG_FOLDER);
+        if (movedFolder) {
+          if (folderId) onMoveFolder?.(movedFolder, folderId);
+          return;
+        }
         const linkId = e.dataTransfer.getData(DRAG_LINK);
         if (linkId) onDropLink?.(linkId, dropTarget ?? null);
         else {

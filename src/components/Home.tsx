@@ -3,6 +3,7 @@ import { buildTree } from '../lib/tree';
 import type { Category, LinkItem } from '../lib/types';
 import { hostOf } from '../lib/utils';
 import { Favicon } from './Favicon';
+import { FolderTile } from './FolderTile';
 import { Icon, type IconName } from './Icon';
 import { VIEW_FAV, VIEW_IMPORTANT, VIEW_LATER } from './Sidebar';
 
@@ -14,11 +15,14 @@ type Props = {
   onOpenView: (view: string) => void;
   onNewCategory: () => void;
   onVisit: (link: LinkItem) => void;
+  onMoveLink: (linkId: string, categoryId: string) => void;
+  onMoveFolder: (folderId: string, parentId: string) => void;
+  canNest: (folderId: string | null, parentId: string) => boolean;
 };
 
 const MAX_SITES = 8;
 
-export function Home({ categories, links, totals, renderCard, onOpenView, onNewCategory, onVisit }: Props) {
+export function Home({ categories, links, totals, renderCard, onOpenView, onNewCategory, onVisit, onMoveLink, onMoveFolder, canNest }: Props) {
   const { roots } = buildTree(categories);
   const manual = roots.filter((c) => !c.domain);
   const sites = roots.filter((c) => c.domain).sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0));
@@ -36,19 +40,15 @@ export function Home({ categories, links, totals, renderCard, onOpenView, onNewC
       <Section icon="layers" title="Gavetas">
         <div className="subfolders">
           {[...manual, ...sites.slice(0, MAX_SITES)].map((c) => (
-            <button key={c.id} className="subfolder" onClick={() => onOpenView(c.id)}>
-              {c.domain ? (
-                <span className="cat-emoji">
-                  <Favicon url={`https://${c.domain}`} size={18} />
-                </span>
-              ) : (
-                <span className="cat-emoji" style={{ background: c.color + '26' }}>
-                  {c.emoji}
-                </span>
-              )}
-              <span className="subfolder-name">{c.name}</span>
-              <span className="nav-count">{totals.get(c.id) ?? 0}</span>
-            </button>
+            <FolderTile
+              key={c.id}
+              category={c}
+              count={totals.get(c.id) ?? 0}
+              onOpen={() => onOpenView(c.id)}
+              onMoveLink={onMoveLink}
+              onMoveFolder={onMoveFolder}
+              canNest={canNest}
+            />
           ))}
           <button className="subfolder new" onClick={onNewCategory}>
             <Icon name="plus" size={15} /> Nova gaveta

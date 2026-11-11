@@ -48,3 +48,8 @@ export const CATEGORY_COLORS = [
 
 /** Tipo de dado usado ao arrastar um card para outra gaveta */
 export const DRAG_LINK = 'application/x-gaveta-link';
+/** Tipo de dado usado ao arrastar uma gaveta para dentro de outra */
+export const DRAG_FOLDER = 'application/x-gaveta-folder';
+
+/** Gaveta sendo arrastada agora (durante o arraste o navegador não deixa ler o dado) */
+export const dragState: { folderId: string | null } = { folderId: null };

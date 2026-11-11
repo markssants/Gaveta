@@ -17,9 +17,9 @@ import {
   useUserData,
 } from '../lib/data';
 import type { Category, LinkItem } from '../lib/types';
-import { CATEGORY_COLORS, DRAG_LINK } from '../lib/types';
+import { CATEGORY_COLORS, DRAG_FOLDER, DRAG_LINK, dragState } from '../lib/types';
 import { planGrouping } from '../lib/grouping';
-import { ancestorsOf, flattenTree, totalsOf } from '../lib/tree';
+import { ancestorsOf, flattenTree, totalsOf, withDescendants } from '../lib/tree';
 import { fetchThumb, isValidThumb } from '../lib/thumb';
 import { cleanItems, download, parseQuick, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
@@ -31,6 +31,7 @@ import { SettingsModal } from './SettingsModal';
 import { ExtensionModal } from './ExtensionModal';
 import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_HOME, VIEW_IMPORTANT, VIEW_INBOX, VIEW_LATER } from './Sidebar';
 import { Home } from './Home';
+import { FolderTile } from './FolderTile';
 
 type LinkModalState =
   | { mode: 'new'; initial: Partial<LinkItem>; rid?: string; closeAfter?: boolean; thumb?: string }
@@ -482,6 +483,23 @@ export function Dashboard({ user }: { user: User }) {
     showToast(`Movido para ${catLabel(categoryId)}`);
   }
 
+  /** Pode mover a gaveta para dentro de parentId (null = gaveta principal)? */
+  function canNest(folderId: string | null, parentId: string | null): boolean {
+    const folder = folderId ? catById.get(folderId) : undefined;
+    if (!folder) return false;
+    const current = folder.parentId && catById.has(folder.parentId) ? folder.parentId : null;
+    if (current === parentId) return false; // já está lá
+    if (parentId === null) return true;
+    return catById.has(parentId) && !withDescendants(categories, folder.id).has(parentId);
+  }
+
+  function moveFolder(folderId: string, parentId: string | null) {
+    if (!canNest(folderId, parentId)) return;
+    const folder = catById.get(folderId)!;
+    void updateCategory(uid, folderId, { parentId });
+    showToast(parentId ? `"${folder.name}" agora está dentro de "${catById.get(parentId)!.name}"` : `"${folder.name}" virou gaveta principal`);
+  }
+
   function dropUrl(raw: string, categoryId: string | null, keepInbox = false) {
     const res = saveNew(raw, '', '', categoryId, keepInbox);
     if (res.error) showToast(res.error);
@@ -617,6 +635,8 @@ export function Dashboard({ user }: { user: User }) {
           onEditCategory={(c) => setCatModal(c)}
           onDropLink={moveLink}
           onDropUrl={(url, categoryId) => dropUrl(url, categoryId, categoryId === null)}
+          onMoveFolder={moveFolder}
+          canNest={canNest}
           onClose={() => setNavOpen(false)}
           onOpenExtension={() => {
             setNavOpen(false);
@@ -648,7 +668,25 @@ export function Dashboard({ user }: { user: User }) {
               <nav className="crumbs" aria-label="Caminho">
                 {ancestors.map((a) => (
                   <Fragment key={a.id}>
-                    <button onClick={() => setView(a.id)}>{a.name}</button>
+                    <button
+                      onClick={() => setView(a.id)}
+                      onDragOver={(e) => {
+                        if (e.dataTransfer.types.includes(DRAG_FOLDER) && canNest(dragState.folderId, a.id)) {
+                          e.preventDefault();
+                          e.currentTarget.classList.add('drop-over');
+                        }
+                      }}
+                      onDragLeave={(e) => e.currentTarget.classList.remove('drop-over')}
+                      onDrop={(e) => {
+                        e.currentTarget.classList.remove('drop-over');
+                        const folderId = e.dataTransfer.getData(DRAG_FOLDER);
+                        if (!folderId) return;
+                        e.preventDefault();
+                        moveFolder(folderId, a.id);
+                      }}
+                    >
+                      {a.name}
+                    </button>
                     <span aria-hidden="true">/</span>
                   </Fragment>
                 ))}
@@ -706,23 +744,15 @@ export function Dashboard({ user }: { user: User }) {
           {inFolder && currentCategory && (
             <div className="subfolders">
               {subfolders.map((c) => (
-                <button
+                <FolderTile
                   key={c.id}
-                  className="subfolder"
-                  onClick={() => setView(c.id)}
-                  onDragOver={(e) => e.dataTransfer.types.includes(DRAG_LINK) && (e.preventDefault(), e.stopPropagation())}
-                  onDrop={(e) => {
-                    const linkId = e.dataTransfer.getData(DRAG_LINK);
-                    if (!linkId) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    moveLink(linkId, c.id);
-                  }}
-                >
-                  <span className="cat-emoji" style={{ background: c.color + '26' }}>{c.emoji}</span>
-                  <span className="subfolder-name">{c.name}</span>
-                  <span className="nav-count">{totals.get(c.id) ?? 0}</span>
-                </button>
+                  category={c}
+                  count={totals.get(c.id) ?? 0}
+                  onOpen={() => setView(c.id)}
+                  onMoveLink={moveLink}
+                  onMoveFolder={moveFolder}
+                  canNest={canNest}
+                />
               ))}
               <button className="subfolder new" onClick={() => openNewCategory(currentCategory.id)}>
                 <Icon name="plus" size={15} /> Nova subpasta
@@ -748,6 +778,9 @@ export function Dashboard({ user }: { user: User }) {
               }}
               onNewCategory={() => openNewCategory()}
               onVisit={(l) => void recordVisit(uid, l.id)}
+              onMoveLink={moveLink}
+              onMoveFolder={moveFolder}
+              canNest={canNest}
             />
           ) : visible.length ? (
             <div className="grid">{visible.map(renderCard)}</div>
