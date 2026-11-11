@@ -20,8 +20,10 @@ export type LinkItem = {
   categoryId: string | null;
   favorite: boolean;
   createdAt: number;
-  /** A miniatura fica em users/{uid}/thumbs/{id}, gravada uma vez só ao salvar */
+  /** A miniatura fica em users/{uid}/thumbs/{id}, gravada ao salvar */
   hasThumb?: boolean;
+  /** Quando a miniatura foi gravada; muda só ao recarregar manualmente */
+  thumbAt?: number;
 };
 
 export type NewLink = Omit<LinkItem, 'id'>;

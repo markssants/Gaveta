@@ -11,12 +11,14 @@ type Props = {
   link: LinkItem;
   category: Category | null;
   showCategory: boolean;
+  refreshing: boolean;
+  onRefreshThumb: () => void;
   onToggleFavorite: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
 
-export function LinkCard({ uid, link, category, showCategory, onToggleFavorite, onEdit, onDelete }: Props) {
+export function LinkCard({ uid, link, category, showCategory, refreshing, onRefreshThumb, onToggleFavorite, onEdit, onDelete }: Props) {
   const host = hostOf(link.url);
   const style = category ? ({ '--cat': category.color } as CSSProperties) : undefined;
 
@@ -43,6 +45,15 @@ export function LinkCard({ uid, link, category, showCategory, onToggleFavorite, 
           {link.note && <p className="card-note">{link.note}</p>}
         </div>
       </a>
+      <button
+        className={'icon-btn sm thumb-refresh' + (refreshing ? ' busy' : '')}
+        onClick={onRefreshThumb}
+        disabled={refreshing}
+        title="Recarregar miniatura"
+        aria-label="Recarregar miniatura"
+      >
+        <Icon name="refresh" size={15} />
+      </button>
       <footer className="card-foot">
         {showCategory && (
           <span className="chip">

@@ -27,7 +27,7 @@ async function shrink(blob: Blob): Promise<string | null> {
   return isValidThumb(data) ? data : null;
 }
 
-/** Busca a imagem de preview da página. Roda uma vez só, ao salvar o link. */
+/** Busca a imagem de preview da página. Roda ao salvar o link e quando a pessoa pede para recarregar. */
 export async function fetchThumb(url: string): Promise<string | null> {
   try {
     const token = await auth.currentUser?.getIdToken();

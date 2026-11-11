@@ -68,6 +68,7 @@ export function Dashboard({ user }: { user: User }) {
   const [linkModal, setLinkModal] = useState<LinkModalState>(null);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
   const [newParentId, setNewParentId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState<ReadonlySet<string>>(new Set());
   const [importState, setImportState] = useState<ImportState>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extOpen, setExtOpen] = useState(false);
@@ -180,13 +181,36 @@ export function Dashboard({ user }: { user: User }) {
     });
   }
 
-  /** Guarda a miniatura do momento. Nunca é chamada de novo para o mesmo link. */
+  /** Guarda a miniatura do momento em que o link foi salvo */
   async function storeThumb(id: string, url: string, ready?: string) {
     try {
       const data = ready ?? (await fetchThumb(url));
       if (data) await saveThumb(uid, id, data);
     } catch {
       /* sem miniatura: o card mostra o ícone do site */
+    }
+  }
+
+  /** Só roda quando a pessoa clica no ícone. Se não achar imagem nova, mantém a atual. */
+  async function refreshThumb(l: LinkItem) {
+    if (l.hasThumb && !confirm('Trocar a miniatura guardada pela imagem atual do site? A anterior será perdida.')) return;
+    setRefreshing((s) => new Set(s).add(l.id));
+    try {
+      const data = await fetchThumb(l.url);
+      if (!data) {
+        showToast(l.hasThumb ? 'O site não tem imagem disponível. A miniatura atual foi mantida.' : 'O site não tem imagem disponível.');
+        return;
+      }
+      await saveThumb(uid, l.id, data);
+      showToast('Miniatura atualizada');
+    } catch (e) {
+      showToast('Não deu pra salvar: ' + (e as Error).message);
+    } finally {
+      setRefreshing((s) => {
+        const next = new Set(s);
+        next.delete(l.id);
+        return next;
+      });
     }
   }
 
@@ -530,6 +554,8 @@ export function Dashboard({ user }: { user: User }) {
                   link={l}
                   category={catOf(l)}
                   showCategory={showCategoryChip}
+                  refreshing={refreshing.has(l.id)}
+                  onRefreshThumb={() => void refreshThumb(l)}
                   onToggleFavorite={() => void updateLink(uid, l.id, { favorite: !l.favorite })}
                   onEdit={() => setLinkModal({ mode: 'edit', initial: l })}
                   onDelete={() => removeLink(l)}

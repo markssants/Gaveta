@@ -84,27 +84,34 @@ export function deleteLink(uid: string, id: string) {
   return batch.commit();
 }
 
-// Miniaturas nunca mudam depois de gravadas, então o cache nunca precisa revalidar
-const thumbCache = new Map<string, Promise<string | null>>();
+// A miniatura só muda quando recarregada à mão, e aí o link ganha um novo thumbAt
+const thumbCache = new Map<string, { version?: number; pending: Promise<string | null> }>();
 
-/** Grava a miniatura junto com a marca no link. Só é chamada ao salvar o link. */
+/** Grava a miniatura junto com a marca no link. Roda ao salvar o link ou ao recarregar à mão. */
 export function saveThumb(uid: string, id: string, data: string) {
+  const at = Date.now();
   const batch = writeBatch(db);
-  batch.set(thumbDoc(uid, id), { data });
-  batch.update(doc(linksCol(uid), id), { hasThumb: true });
+  batch.set(thumbDoc(uid, id), { data, at });
+  batch.update(doc(linksCol(uid), id), { hasThumb: true, thumbAt: at });
+  thumbCache.set(id, { version: at, pending: Promise.resolve(data) });
   return batch.commit();
 }
 
-export function loadThumb(uid: string, id: string): Promise<string | null> {
+export function loadThumb(uid: string, id: string, version?: number): Promise<string | null> {
   const cached = thumbCache.get(id);
-  if (cached) return cached;
+  if (cached && cached.version === version) return cached.pending;
   const ref = thumbDoc(uid, id);
   const pending = getDocFromCache(ref)
+    .then((s) => {
+      // Recarregada em outro aparelho: o cache local ainda tem a imagem anterior
+      if (s.data()?.at !== version) throw new Error('stale');
+      return s;
+    })
     .catch(() => getDoc(ref))
     .then((s) => (s.data()?.data as string | undefined) ?? null)
     .catch(() => null);
   pending.then((data) => data === null && thumbCache.delete(id));
-  thumbCache.set(id, pending);
+  thumbCache.set(id, { version, pending });
   return pending;
 }
 

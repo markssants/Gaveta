@@ -1378,3 +1378,37 @@ em.muted {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- Recarregar miniatura ---------- */
+.thumb-refresh {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.thumb-refresh:hover {
+  background: var(--surface);
+  color: var(--accent);
+}
+.card:hover .thumb-refresh,
+.thumb-refresh:focus-visible,
+.thumb-refresh.busy {
+  opacity: 1;
+}
+.thumb-refresh.busy svg {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 860px) {
+  .thumb-refresh {
+    opacity: 1;
+  }
+}

@@ -16,7 +16,7 @@ export function Thumb({ uid, link }: { uid: string; link: LinkItem }) {
       ([entry]) => {
         if (!entry.isIntersecting) return;
         observer.disconnect();
-        void loadThumb(uid, link.id).then((data) => alive && setSrc(data));
+        void loadThumb(uid, link.id, link.thumbAt).then((data) => alive && data && setSrc(data));
       },
       { rootMargin: '400px' },
     );
@@ -25,7 +25,7 @@ export function Thumb({ uid, link }: { uid: string; link: LinkItem }) {
       alive = false;
       observer.disconnect();
     };
-  }, [uid, link.id, link.hasThumb]);
+  }, [uid, link.id, link.hasThumb, link.thumbAt]);
 
   return (
     <div className="card-thumb" ref={ref}>

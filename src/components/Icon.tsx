@@ -21,6 +21,12 @@ const PATHS = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  refresh: (
+    <>
+      <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+      <path d="M21 3v5h-5" />
+    </>
+  ),
   chevron: <path d="m9 6 6 6-6 6" />,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   x: <path d="M18 6 6 18M6 6l12 12" />,
