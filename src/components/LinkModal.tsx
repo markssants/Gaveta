@@ -9,12 +9,13 @@ type Props = {
   mode: 'new' | 'edit';
   initial: Partial<LinkItem>;
   categories: Category[];
+  autoGroup: boolean;
   /** Retorna mensagem de erro, ou null se salvou */
   onSave: (draft: LinkDraft) => string | null;
   onClose: () => void;
 };
 
-export function LinkModal({ mode, initial, categories, onSave, onClose }: Props) {
+export function LinkModal({ mode, initial, categories, autoGroup, onSave, onClose }: Props) {
   const [url, setUrl] = useState(initial.url ?? '');
   const [title, setTitle] = useState(initial.title ?? '');
   const [note, setNote] = useState(initial.note ?? '');
@@ -71,7 +72,7 @@ export function LinkModal({ mode, initial, categories, onSave, onClose }: Props)
         <label>
           <span>Gaveta</span>
           <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value || null)}>
-            <option value="">📥 Caixa de entrada</option>
+            <option value="">{autoGroup && mode === 'new' ? '✨ Automático (gaveta do site)' : '📥 Caixa de entrada'}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.emoji} {c.name}

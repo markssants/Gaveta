@@ -5,13 +5,17 @@ import { Modal } from './Modal';
 
 type Props = {
   user: User;
+  autoGroup: boolean;
+  inboxCount: number;
+  loading: boolean;
+  onToggleAutoGroup: (on: boolean) => void;
   onExport: () => void;
   onSignOut: () => void;
   onOpenExtension: () => void;
   onClose: () => void;
 };
 
-export function SettingsModal({ user, onExport, onSignOut, onOpenExtension, onClose }: Props) {
+export function SettingsModal({ user, autoGroup, inboxCount, loading, onToggleAutoGroup, onExport, onSignOut, onOpenExtension, onClose }: Props) {
   const bmRef = useRef<HTMLAnchorElement>(null);
 
   // React bloqueia href="javascript:", então definimos direto no DOM
@@ -32,6 +36,27 @@ export function SettingsModal({ user, onExport, onSignOut, onOpenExtension, onCl
             <div className="muted small">{user.email}</div>
           </div>
         </div>
+
+        <section className="setting-row">
+          <div>
+            <h3 id="auto-group-label">Agrupamento automático por site</h3>
+            <p className="muted small">
+              Links guardados sem escolher uma gaveta vão sozinhos para a gaveta do site, como YouTube. A gaveta é criada na hora, se ainda não existir.{' '}
+              {autoGroup
+                ? 'Ao desativar, nada muda de lugar: só os próximos links voltam para a Caixa de entrada.'
+                : inboxCount > 0 && `Ao ativar, os links que estão na Caixa de entrada (${inboxCount}) também serão agrupados.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoGroup}
+            aria-labelledby="auto-group-label"
+            className={'switch' + (autoGroup ? ' on' : '')}
+            disabled={loading}
+            onClick={() => onToggleAutoGroup(!autoGroup)}
+          />
+        </section>
 
         <section>
           <h3>Extensão do navegador</h3>

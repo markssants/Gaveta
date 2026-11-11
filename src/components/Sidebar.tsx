@@ -1,6 +1,7 @@
 import { useState, type DragEvent, type ReactNode } from 'react';
 import type { Category } from '../lib/types';
 import { DRAG_LINK } from '../lib/types';
+import { Favicon } from './Favicon';
 import { Icon } from './Icon';
 
 export const VIEW_ALL = '__all';
@@ -23,6 +24,12 @@ type Props = {
 };
 
 export function Sidebar(p: Props) {
+  const manual = p.categories.filter((c) => !c.domain);
+  // Sites com mais links primeiro
+  const sites = p.categories
+    .filter((c) => c.domain)
+    .sort((a, b) => (p.counts.byCat.get(b.id) ?? 0) - (p.counts.byCat.get(a.id) ?? 0) || a.name.localeCompare(b.name));
+
   return (
     <>
       <div className={'nav-scrim' + (p.open ? ' show' : '')} onClick={p.onClose} />
@@ -50,7 +57,7 @@ export function Sidebar(p: Props) {
         </div>
 
         <div className="nav-group nav-cats">
-          {p.categories.map((c) => (
+          {manual.map((c) => (
             <NavItem
               key={c.id}
               active={p.view === c.id}
@@ -64,12 +71,36 @@ export function Sidebar(p: Props) {
               onDropUrl={p.onDropUrl}
             />
           ))}
-          {p.categories.length === 0 && (
+          {manual.length === 0 && (
             <button className="nav-empty" onClick={p.onNewCategory}>
               <Icon name="plus" size={15} /> Criar primeira gaveta
             </button>
           )}
         </div>
+
+        {sites.length > 0 && (
+          <>
+            <div className="nav-heading">
+              <span>Sites</span>
+            </div>
+            <div className="nav-group nav-cats">
+              {sites.map((c) => (
+                <NavItem
+                  key={c.id}
+                  active={p.view === c.id}
+                  onClick={() => p.onSelect(c.id)}
+                  icon={<Favicon url={`https://${c.domain}`} size={18} />}
+                  label={c.name}
+                  count={p.counts.byCat.get(c.id) ?? 0}
+                  onEdit={() => p.onEditCategory(c)}
+                  dropTarget={c.id}
+                  onDropLink={p.onDropLink}
+                  onDropUrl={p.onDropUrl}
+                />
+              ))}
+            </div>
+          </>
+        )}
         <div className="nav-foot">
           <p className="nav-hint">Arraste um card para uma gaveta para mover.</p>
           <button className="nav-ext" onClick={p.onOpenExtension}>

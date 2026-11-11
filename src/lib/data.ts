@@ -15,11 +15,13 @@ import type { Category, LinkItem, NewLink } from './types';
 
 const linksCol = (uid: string) => collection(db, 'users', uid, 'links');
 const catsCol = (uid: string) => collection(db, 'users', uid, 'categories');
+const settingsDoc = (uid: string) => doc(db, 'users', uid, 'meta', 'settings');
 
 export function useUserData(uid: string) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [links, setLinks] = useState<LinkItem[]>([]);
-  const [ready, setReady] = useState({ cats: false, links: false });
+  const [autoGroup, setAutoGroupState] = useState(false);
+  const [ready, setReady] = useState({ cats: false, links: false, settings: false });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,13 +42,22 @@ export function useUserData(uid: string) {
       },
       onErr,
     );
+    const u3 = onSnapshot(
+      settingsDoc(uid),
+      (s) => {
+        setAutoGroupState(s.data()?.autoGroup === true);
+        setReady((r) => ({ ...r, settings: true }));
+      },
+      onErr,
+    );
     return () => {
       u1();
       u2();
+      u3();
     };
   }, [uid]);
 
-  return { categories, links, loading: !(ready.cats && ready.links), error };
+  return { categories, links, autoGroup, loading: !(ready.cats && ready.links && ready.settings), error };
 }
 
 /**
@@ -88,6 +99,27 @@ export async function deleteCategory(uid: string, id: string, linkIds: string[])
     await batch.commit();
   }
   await deleteDoc(doc(catsCol(uid), id));
+}
+
+export function setAutoGroup(uid: string, on: boolean) {
+  return setDoc(settingsDoc(uid), { autoGroup: on }, { merge: true });
+}
+
+/** Cria as gavetas de site, com o id definido em planGrouping */
+export async function createCategories(uid: string, categories: Category[]) {
+  for (let i = 0; i < categories.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const { id, ...data } of categories.slice(i, i + BATCH_LIMIT)) batch.set(doc(catsCol(uid), id), data);
+    await batch.commit();
+  }
+}
+
+export async function moveLinks(uid: string, moves: { id: string; categoryId: string }[]) {
+  for (let i = 0; i < moves.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const m of moves.slice(i, i + BATCH_LIMIT)) batch.update(doc(linksCol(uid), m.id), { categoryId: m.categoryId });
+    await batch.commit();
+  }
 }
 
 export async function importLinks(uid: string, items: NewLink[]): Promise<string[]> {

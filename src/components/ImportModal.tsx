@@ -10,6 +10,8 @@ type Props = {
   categories: Category[];
   existingKeys: Set<string>;
   defaultCategoryId: string | null;
+  autoGroup: boolean;
+  loading: boolean;
   /** Abas enviadas pela extensão: mostra a lista em vez da caixa de texto */
   initialItems?: Item[];
   onImport: (items: Item[], categoryId: string | null) => Promise<void>;
@@ -28,7 +30,7 @@ function cleanItems(items: Item[]): Item[] {
   return out;
 }
 
-export function ImportModal({ categories, existingKeys, defaultCategoryId, initialItems, onImport, onClose }: Props) {
+export function ImportModal({ categories, existingKeys, defaultCategoryId, autoGroup, loading, initialItems, onImport, onClose }: Props) {
   const fromTabs = Boolean(initialItems);
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(fromTabs ? null : defaultCategoryId);
@@ -89,7 +91,7 @@ export function ImportModal({ categories, existingKeys, defaultCategoryId, initi
         <label>
           <span>Guardar em</span>
           <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value || null)}>
-            <option value="">📥 Caixa de entrada</option>
+            <option value="">{autoGroup ? '✨ Automático (gaveta de cada site)' : '📥 Caixa de entrada'}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.emoji} {c.name}
@@ -106,7 +108,7 @@ export function ImportModal({ categories, existingKeys, defaultCategoryId, initi
           <button className="btn ghost" onClick={onClose}>
             Cancelar
           </button>
-          <button className="btn primary" disabled={(!fresh.length && !allSaved) || busy} onClick={run}>
+          <button className="btn primary" disabled={(!fresh.length && !allSaved) || busy || loading} onClick={run}>
             {busy ? 'Guardando…' : allSaved ? 'Ok, já está tudo guardado' : `Guardar ${fresh.length || ''}`}
           </button>
         </div>

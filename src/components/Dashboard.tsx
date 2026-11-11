@@ -4,15 +4,19 @@ import { auth } from '../lib/firebase';
 import {
   addCategory,
   addLink,
+  createCategories,
   deleteCategory,
   deleteLink,
   importLinks,
+  moveLinks,
+  setAutoGroup,
   updateCategory,
   updateLink,
   useUserData,
 } from '../lib/data';
 import type { Category, LinkItem } from '../lib/types';
 import { DRAG_LINK } from '../lib/types';
+import { planGrouping } from '../lib/grouping';
 import { download, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
 import { Icon } from './Icon';
@@ -52,7 +56,7 @@ function readHashPayload(): ImportState {
 
 export function Dashboard({ user }: { user: User }) {
   const uid = user.uid;
-  const { categories, links, loading, error } = useUserData(uid);
+  const { categories, links, autoGroup, loading, error } = useUserData(uid);
 
   const [view, setView] = useState(VIEW_ALL);
   const [search, setSearch] = useState('');
@@ -176,14 +180,25 @@ export function Dashboard({ user }: { user: User }) {
 
   type SaveResult = { error: string; duplicate?: boolean } | { error: null; saved: Promise<void> };
 
-  function saveNew(rawUrl: string, title: string, note: string, categoryId: string | null): SaveResult {
+  /** keepInbox: a pessoa escolheu a Caixa de entrada de propósito (soltou o link nela) */
+  function saveNew(rawUrl: string, title: string, note: string, categoryId: string | null, keepInbox = false): SaveResult {
+    if (loading) return { error: 'Ainda carregando seus dados. Tente de novo em um instante.' };
     const url = normalizeUrl(rawUrl);
     if (!url) return { error: 'Esse link não parece válido.' };
     const dup = findDuplicate(url);
     if (dup) return { error: `Esse link já está guardado em ${catLabel(catOf(dup)?.id ?? null)}.`, duplicate: true };
-    const { id, saved } = addLink(uid, { url, title: title || hostOf(url), note, categoryId, favorite: false, createdAt: Date.now() });
+    let target = categoryId;
+    let label = catLabel(categoryId);
+    if (categoryId === null && autoGroup && !keepInbox) {
+      const plan = planGrouping([url], categories);
+      target = plan.categoryIds[0];
+      const group = [...plan.newCategories, ...categories].find((c) => c.id === target);
+      if (group) label = `${group.emoji} ${group.name}`;
+      if (plan.newCategories.length) void createCategories(uid, plan.newCategories);
+    }
+    const { id, saved } = addLink(uid, { url, title: title || hostOf(url), note, categoryId: target, favorite: false, createdAt: Date.now() });
     if (!title) void fillTitle(id, url);
-    showToast(`Guardado em ${catLabel(categoryId)}`);
+    showToast(`Guardado em ${label}`);
     return { error: null, saved };
   }
 
@@ -242,6 +257,9 @@ export function Dashboard({ user }: { user: User }) {
       showToast('Tudo isso já estava guardado');
       return;
     }
+    const grouped = categoryId === null && autoGroup;
+    const plan = grouped ? planGrouping(items.map((it) => it.url), categories) : null;
+    if (plan) await createCategories(uid, plan.newCategories);
     const now = Date.now();
     const ids = await importLinks(
       uid,
@@ -249,12 +267,12 @@ export function Dashboard({ user }: { user: User }) {
         url: it.url,
         title: it.title || hostOf(it.url),
         note: '',
-        categoryId,
+        categoryId: plan ? plan.categoryIds[i] : categoryId,
         favorite: false,
         createdAt: now - i, // mantém a ordem colada
       })),
     );
-    showToast(`${items.length} links importados para ${catLabel(categoryId)}`);
+    showToast(grouped ? `${items.length} links agrupados por site` : `${items.length} links importados para ${catLabel(categoryId)}`);
     const missing = items.map((it, i) => ({ ...it, id: ids[i] })).filter((it) => !it.title);
     void pool(missing, 4, (it) => fillTitle(it.id, it.url));
   }
@@ -266,9 +284,31 @@ export function Dashboard({ user }: { user: User }) {
     showToast(`Movido para ${catLabel(categoryId)}`);
   }
 
-  function dropUrl(raw: string, categoryId: string | null) {
-    const res = saveNew(raw, '', '', categoryId);
+  function dropUrl(raw: string, categoryId: string | null, keepInbox = false) {
+    const res = saveNew(raw, '', '', categoryId, keepInbox);
     if (res.error) showToast(res.error);
+  }
+
+  /** Ao ativar, agrupa também o que já está na Caixa de entrada. Ao desativar, nada muda de lugar. */
+  async function toggleAutoGroup(on: boolean) {
+    try {
+      await setAutoGroup(uid, on);
+      if (!on) {
+        showToast('Agrupamento automático desativado');
+        return;
+      }
+      const inbox = links.filter((l) => catOf(l) === null);
+      const plan = planGrouping(inbox.map((l) => l.url), categories);
+      await createCategories(uid, plan.newCategories);
+      const moves = inbox.flatMap((l, i) => {
+        const categoryId = plan.categoryIds[i];
+        return categoryId ? [{ id: l.id, categoryId }] : [];
+      });
+      await moveLinks(uid, moves);
+      showToast(moves.length ? `${moves.length} links agrupados por site` : 'Agrupamento automático ativado');
+    } catch (e) {
+      showToast('Não deu pra salvar: ' + (e as Error).message);
+    }
   }
 
   function removeLink(l: LinkItem) {
@@ -348,7 +388,7 @@ export function Dashboard({ user }: { user: User }) {
           onNewCategory={() => setCatModal('new')}
           onEditCategory={(c) => setCatModal(c)}
           onDropLink={moveLink}
-          onDropUrl={dropUrl}
+          onDropUrl={(url, categoryId) => dropUrl(url, categoryId, categoryId === null)}
           onClose={() => setNavOpen(false)}
           onOpenExtension={() => {
             setNavOpen(false);
@@ -395,7 +435,7 @@ export function Dashboard({ user }: { user: User }) {
               <input
                 value={quick}
                 onChange={(e) => setQuick(e.target.value)}
-                placeholder={`Cole um link para guardar em ${currentCategory ? currentCategory.name : 'Caixa de entrada'}…`}
+                placeholder={`Cole um link para guardar em ${currentCategory ? currentCategory.name : autoGroup ? 'a gaveta do site' : 'Caixa de entrada'}…`}
                 aria-label="Novo link"
               />
               <button type="submit" className="btn primary" disabled={!quick.trim()}>
@@ -445,6 +485,7 @@ export function Dashboard({ user }: { user: User }) {
 
       {linkModal && (
         <LinkModal
+          autoGroup={autoGroup}
           key={linkModal.mode + (linkModal.initial.id ?? '')}
           mode={linkModal.mode}
           initial={linkModal.initial}
@@ -481,6 +522,8 @@ export function Dashboard({ user }: { user: User }) {
 
       {importState && (
         <ImportModal
+          autoGroup={autoGroup}
+          loading={loading}
           categories={categories}
           existingKeys={existingKeys}
           defaultCategoryId={currentCategory?.id ?? null}
@@ -496,6 +539,10 @@ export function Dashboard({ user }: { user: User }) {
       {settingsOpen && (
         <SettingsModal
           user={user}
+          autoGroup={autoGroup}
+          inboxCount={counts.inbox}
+          loading={loading}
+          onToggleAutoGroup={(on) => void toggleAutoGroup(on)}
           onExport={exportAll}
           onSignOut={() => void signOut(auth)}
           onOpenExtension={() => {

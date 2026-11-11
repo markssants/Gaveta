@@ -5,6 +5,8 @@ export type Category = {
   color: string;
   order: number;
   createdAt: number;
+  /** Preenchido nas gavetas criadas pelo agrupamento automático */
+  domain?: string;
 };
 
 export type LinkItem = {
