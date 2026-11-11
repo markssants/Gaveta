@@ -12,6 +12,7 @@ import { deflateRawSync } from 'node:zlib';
 const root = new URL('..', import.meta.url).pathname;
 const extDir = join(root, 'extension');
 const outDir = join(root, 'public', 'downloads');
+mkdirSync(outDir, { recursive: true });
 const manifest = JSON.parse(readFileSync(join(extDir, 'manifest.json'), 'utf8'));
 
 // ---------- ZIP mínimo (sem dependências) ----------
