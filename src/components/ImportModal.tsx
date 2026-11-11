@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Category } from '../lib/types';
+import { flattenTree } from '../lib/tree';
 import { hostOf, normalizeUrl, parseBulk, urlKey } from '../lib/utils';
 import { Favicon } from './Favicon';
 import { Modal } from './Modal';
@@ -92,8 +93,9 @@ export function ImportModal({ categories, existingKeys, defaultCategoryId, autoG
           <span>Guardar em</span>
           <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value || null)}>
             <option value="">{autoGroup ? '✨ Automático (gaveta de cada site)' : '📥 Caixa de entrada'}</option>
-            {categories.map((c) => (
+            {flattenTree(categories).map(({ category: c, depth }) => (
               <option key={c.id} value={c.id}>
+                {'\u00A0\u00A0\u00A0'.repeat(depth)}
                 {c.emoji} {c.name}
               </option>
             ))}

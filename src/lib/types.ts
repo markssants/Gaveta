@@ -5,6 +5,8 @@ export type Category = {
   color: string;
   order: number;
   createdAt: number;
+  /** Gaveta em que esta está dentro. Vazio = gaveta de topo */
+  parentId?: string | null;
   /** Preenchido nas gavetas criadas pelo agrupamento automático */
   domain?: string;
 };
@@ -18,6 +20,8 @@ export type LinkItem = {
   categoryId: string | null;
   favorite: boolean;
   createdAt: number;
+  /** A miniatura fica em users/{uid}/thumbs/{id}, gravada uma vez só ao salvar */
+  hasThumb?: boolean;
 };
 
 export type NewLink = Omit<LinkItem, 'id'>;

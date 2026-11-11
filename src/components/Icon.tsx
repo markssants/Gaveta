@@ -21,6 +21,7 @@ const PATHS = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  chevron: <path d="m9 6 6 6-6 6" />,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   x: <path d="M18 6 6 18M6 6l12 12" />,
   inbox: (

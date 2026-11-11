@@ -415,19 +415,44 @@ kbd,
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.nav-edit {
+.nav-actions {
   position: absolute;
   right: 4px;
   top: 5px;
+  display: flex;
+  gap: 1px;
+  border-radius: 7px;
   opacity: 0;
   background: var(--surface-2);
 }
-.nav-item:hover .nav-edit,
-.nav-edit:focus-visible {
+.nav-item:hover .nav-actions,
+.nav-actions:focus-within {
   opacity: 1;
 }
-.nav-item:hover .nav-count:has(+ *) {
-  visibility: hidden;
+.nav-item.tree .nav-btn {
+  padding-left: calc(24px + var(--depth) * 16px);
+}
+.nav-chevron {
+  position: absolute;
+  left: calc(4px + var(--depth) * 16px);
+  top: 10px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  transition: transform 0.12s;
+}
+.nav-chevron:hover {
+  color: var(--text);
+}
+.nav-chevron.open {
+  transform: rotate(90deg);
 }
 .nav-empty {
   display: flex;
@@ -582,15 +607,32 @@ body.dragging-link .nav-group:first-child .nav-item:nth-child(2) {
 .card-main {
   flex: 1;
   display: block;
-  padding: 14px 14px 8px;
   color: inherit;
   text-decoration: none;
+}
+.card-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.card-thumb img:not(.favicon) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .card-top {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 12px 14px 0;
   margin-bottom: 8px;
+}
+.card-text {
+  padding: 0 14px 8px;
 }
 .favicon {
   flex: none;
@@ -1012,11 +1054,14 @@ em.muted {
   .nav-hint {
     display: none;
   }
-  .nav-edit {
+  .nav-actions {
     opacity: 1;
   }
-  .nav-item .nav-count:has(+ *) {
-    visibility: hidden;
+  .nav-item.tree .nav-count {
+    display: none;
+  }
+  .nav-item.tree .nav-btn {
+    padding-right: 66px;
   }
   .content {
     padding: 18px 16px 48px;
@@ -1269,4 +1314,67 @@ em.muted {
 .switch:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ---------- Subpastas ---------- */
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.crumbs button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+.crumbs button:hover {
+  color: var(--accent);
+}
+.subfolders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.subfolder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s;
+}
+.subfolder:hover {
+  border-color: var(--accent);
+}
+.subfolder.new {
+  justify-content: center;
+  gap: 7px;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: none;
+  color: var(--muted);
+}
+.subfolder.new:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.subfolder-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

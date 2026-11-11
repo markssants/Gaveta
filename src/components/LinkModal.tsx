@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Category, LinkItem } from '../lib/types';
+import { flattenTree } from '../lib/tree';
 import { fetchTitle, normalizeUrl } from '../lib/utils';
 import { Modal } from './Modal';
 
@@ -73,8 +74,9 @@ export function LinkModal({ mode, initial, categories, autoGroup, onSave, onClos
           <span>Gaveta</span>
           <select value={categoryId ?? ''} onChange={(e) => setCategoryId(e.target.value || null)}>
             <option value="">{autoGroup && mode === 'new' ? '✨ Automático (gaveta do site)' : '📥 Caixa de entrada'}</option>
-            {categories.map((c) => (
+            {flattenTree(categories).map(({ category: c, depth }) => (
               <option key={c.id} value={c.id}>
+                {'\u00A0\u00A0\u00A0'.repeat(depth)}
                 {c.emoji} {c.name}
               </option>
             ))}

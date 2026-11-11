@@ -4,8 +4,10 @@ import { DRAG_LINK } from '../lib/types';
 import { hostOf, relTime } from '../lib/utils';
 import { Favicon } from './Favicon';
 import { Icon } from './Icon';
+import { Thumb } from './Thumb';
 
 type Props = {
+  uid: string;
   link: LinkItem;
   category: Category | null;
   showCategory: boolean;
@@ -14,7 +16,7 @@ type Props = {
   onDelete: () => void;
 };
 
-export function LinkCard({ link, category, showCategory, onToggleFavorite, onEdit, onDelete }: Props) {
+export function LinkCard({ uid, link, category, showCategory, onToggleFavorite, onEdit, onDelete }: Props) {
   const host = hostOf(link.url);
   const style = category ? ({ '--cat': category.color } as CSSProperties) : undefined;
 
@@ -31,12 +33,15 @@ export function LinkCard({ link, category, showCategory, onToggleFavorite, onEdi
       onDragEnd={() => document.body.classList.remove('dragging-link')}
     >
       <a className="card-main" href={link.url} target="_blank" rel="noopener noreferrer" draggable={false}>
+        <Thumb uid={uid} link={link} />
         <div className="card-top">
           <Favicon url={link.url} />
           <span className="card-host">{host}</span>
         </div>
-        <h3 className="card-title">{link.title || host}</h3>
-        {link.note && <p className="card-note">{link.note}</p>}
+        <div className="card-text">
+          <h3 className="card-title">{link.title || host}</h3>
+          {link.note && <p className="card-note">{link.note}</p>}
+        </div>
       </a>
       <footer className="card-foot">
         {showCategory && (

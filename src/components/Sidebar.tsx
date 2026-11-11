@@ -1,6 +1,7 @@
-import { useState, type DragEvent, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import type { Category } from '../lib/types';
 import { DRAG_LINK } from '../lib/types';
+import { ancestorsOf, buildTree, totalsOf } from '../lib/tree';
 import { Favicon } from './Favicon';
 import { Icon } from './Icon';
 
@@ -14,7 +15,7 @@ type Props = {
   view: string;
   open: boolean;
   onSelect: (view: string) => void;
-  onNewCategory: () => void;
+  onNewCategory: (parentId?: string) => void;
   onEditCategory: (c: Category) => void;
   /** categoryId null = Caixa de entrada */
   onDropLink: (linkId: string, categoryId: string | null) => void;
@@ -24,11 +25,59 @@ type Props = {
 };
 
 export function Sidebar(p: Props) {
-  const manual = p.categories.filter((c) => !c.domain);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const { roots, children } = useMemo(() => buildTree(p.categories), [p.categories]);
+  const totals = useMemo(() => totalsOf(p.categories, p.counts.byCat), [p.categories, p.counts.byCat]);
+  // A gaveta aberta fica sempre visível, mesmo dentro de uma pasta recolhida
+  const openPath = useMemo(() => new Set(ancestorsOf(p.categories, p.view).map((c) => c.id)), [p.categories, p.view]);
+
+  const manual = roots.filter((c) => !c.domain);
   // Sites com mais links primeiro
-  const sites = p.categories
+  const sites = roots
     .filter((c) => c.domain)
-    .sort((a, b) => (p.counts.byCat.get(b.id) ?? 0) - (p.counts.byCat.get(a.id) ?? 0) || a.name.localeCompare(b.name));
+    .sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0) || a.name.localeCompare(b.name));
+
+  function toggle(id: string) {
+    const next = new Set(collapsed);
+    if (!next.delete(id)) next.add(id);
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+    } catch {
+      /* sem armazenamento: vale só nesta sessão */
+    }
+  }
+
+  function renderNode(c: Category, depth: number): ReactNode {
+    const kids = children.get(c.id) ?? [];
+    const expanded = !collapsed.has(c.id) || openPath.has(c.id);
+    return (
+      <Fragment key={c.id}>
+        <NavItem
+          active={p.view === c.id}
+          onClick={() => p.onSelect(c.id)}
+          icon={
+            c.domain ? (
+              <Favicon url={`https://${c.domain}`} size={18} />
+            ) : (
+              <span className="cat-emoji" style={{ background: c.color + '26' }}>{c.emoji}</span>
+            )
+          }
+          label={c.name}
+          count={totals.get(c.id) ?? 0}
+          depth={depth}
+          expanded={kids.length ? expanded : undefined}
+          onToggle={() => toggle(c.id)}
+          onEdit={() => p.onEditCategory(c)}
+          onAddChild={() => p.onNewCategory(c.id)}
+          dropTarget={c.id}
+          onDropLink={p.onDropLink}
+          onDropUrl={p.onDropUrl}
+        />
+        {expanded && kids.map((k) => renderNode(k, depth + 1))}
+      </Fragment>
+    );
+  }
 
   return (
     <>
@@ -51,28 +100,15 @@ export function Sidebar(p: Props) {
 
         <div className="nav-heading">
           <span>Gavetas</span>
-          <button className="icon-btn sm" onClick={p.onNewCategory} title="Nova gaveta" aria-label="Nova gaveta">
+          <button className="icon-btn sm" onClick={() => p.onNewCategory()} title="Nova gaveta" aria-label="Nova gaveta">
             <Icon name="plus" size={16} />
           </button>
         </div>
 
         <div className="nav-group nav-cats">
-          {manual.map((c) => (
-            <NavItem
-              key={c.id}
-              active={p.view === c.id}
-              onClick={() => p.onSelect(c.id)}
-              icon={<span className="cat-emoji" style={{ background: c.color + '26' }}>{c.emoji}</span>}
-              label={c.name}
-              count={p.counts.byCat.get(c.id) ?? 0}
-              onEdit={() => p.onEditCategory(c)}
-              dropTarget={c.id}
-              onDropLink={p.onDropLink}
-              onDropUrl={p.onDropUrl}
-            />
-          ))}
+          {manual.map((c) => renderNode(c, 0))}
           {manual.length === 0 && (
-            <button className="nav-empty" onClick={p.onNewCategory}>
+            <button className="nav-empty" onClick={() => p.onNewCategory()}>
               <Icon name="plus" size={15} /> Criar primeira gaveta
             </button>
           )}
@@ -84,20 +120,7 @@ export function Sidebar(p: Props) {
               <span>Sites</span>
             </div>
             <div className="nav-group nav-cats">
-              {sites.map((c) => (
-                <NavItem
-                  key={c.id}
-                  active={p.view === c.id}
-                  onClick={() => p.onSelect(c.id)}
-                  icon={<Favicon url={`https://${c.domain}`} size={18} />}
-                  label={c.name}
-                  count={p.counts.byCat.get(c.id) ?? 0}
-                  onEdit={() => p.onEditCategory(c)}
-                  dropTarget={c.id}
-                  onDropLink={p.onDropLink}
-                  onDropUrl={p.onDropUrl}
-                />
-              ))}
+              {sites.map((c) => renderNode(c, 0))}
             </div>
           </>
         )}
@@ -112,13 +135,27 @@ export function Sidebar(p: Props) {
   );
 }
 
+const COLLAPSED_KEY = 'gaveta-collapsed';
+
+function readCollapsed(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
 function NavItem({
   active,
   onClick,
   icon,
   label,
   count,
+  depth,
+  expanded,
+  onToggle,
   onEdit,
+  onAddChild,
   dropTarget,
   onDropLink,
   onDropUrl,
@@ -128,7 +165,13 @@ function NavItem({
   icon: ReactNode;
   label: string;
   count: number;
+  /** Presente nos itens da árvore de gavetas */
+  depth?: number;
+  /** undefined = não tem subpastas */
+  expanded?: boolean;
+  onToggle?: () => void;
   onEdit?: () => void;
+  onAddChild?: () => void;
   dropTarget?: string | null;
   onDropLink?: Props['onDropLink'];
   onDropUrl?: Props['onDropUrl'];
@@ -141,7 +184,8 @@ function NavItem({
 
   return (
     <div
-      className={'nav-item' + (active ? ' active' : '') + (over ? ' drop-over' : '')}
+      className={'nav-item' + (active ? ' active' : '') + (over ? ' drop-over' : '') + (depth !== undefined ? ' tree' : '')}
+      style={depth !== undefined ? ({ '--depth': depth } as CSSProperties) : undefined}
       onDragOver={(e) => {
         if (!accepts(e)) return;
         e.preventDefault();
@@ -162,15 +206,25 @@ function NavItem({
         }
       }}
     >
+      {expanded !== undefined && (
+        <button className={'nav-chevron' + (expanded ? ' open' : '')} onClick={onToggle} aria-expanded={expanded} aria-label={`${expanded ? 'Recolher' : 'Expandir'} ${label}`}>
+          <Icon name="chevron" size={13} />
+        </button>
+      )}
       <button className="nav-btn" onClick={onClick}>
         <span className="nav-icon">{icon}</span>
         <span className="nav-label">{label}</span>
         <span className="nav-count">{count}</span>
       </button>
       {onEdit && (
-        <button className="icon-btn sm nav-edit" onClick={onEdit} title={`Editar ${label}`} aria-label={`Editar ${label}`}>
-          <Icon name="edit" size={13} />
-        </button>
+        <div className="nav-actions">
+          <button className="icon-btn sm" onClick={onAddChild} title={`Nova subpasta em ${label}`} aria-label={`Nova subpasta em ${label}`}>
+            <Icon name="plus" size={14} />
+          </button>
+          <button className="icon-btn sm" onClick={onEdit} title={`Editar ${label}`} aria-label={`Editar ${label}`}>
+            <Icon name="edit" size={13} />
+          </button>
+        </div>
       )}
     </div>
   );

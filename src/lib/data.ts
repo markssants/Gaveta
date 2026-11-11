@@ -3,6 +3,8 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
+  getDocFromCache,
   onSnapshot,
   orderBy,
   query,
@@ -15,6 +17,7 @@ import type { Category, LinkItem, NewLink } from './types';
 
 const linksCol = (uid: string) => collection(db, 'users', uid, 'links');
 const catsCol = (uid: string) => collection(db, 'users', uid, 'categories');
+const thumbDoc = (uid: string, id: string) => doc(db, 'users', uid, 'thumbs', id);
 const settingsDoc = (uid: string) => doc(db, 'users', uid, 'meta', 'settings');
 
 export function useUserData(uid: string) {
@@ -74,7 +77,35 @@ export function updateLink(uid: string, id: string, patch: Partial<NewLink>) {
 }
 
 export function deleteLink(uid: string, id: string) {
-  return deleteDoc(doc(linksCol(uid), id));
+  const batch = writeBatch(db);
+  batch.delete(doc(linksCol(uid), id));
+  batch.delete(thumbDoc(uid, id));
+  thumbCache.delete(id);
+  return batch.commit();
+}
+
+// Miniaturas nunca mudam depois de gravadas, então o cache nunca precisa revalidar
+const thumbCache = new Map<string, Promise<string | null>>();
+
+/** Grava a miniatura junto com a marca no link. Só é chamada ao salvar o link. */
+export function saveThumb(uid: string, id: string, data: string) {
+  const batch = writeBatch(db);
+  batch.set(thumbDoc(uid, id), { data });
+  batch.update(doc(linksCol(uid), id), { hasThumb: true });
+  return batch.commit();
+}
+
+export function loadThumb(uid: string, id: string): Promise<string | null> {
+  const cached = thumbCache.get(id);
+  if (cached) return cached;
+  const ref = thumbDoc(uid, id);
+  const pending = getDocFromCache(ref)
+    .catch(() => getDoc(ref))
+    .then((s) => (s.data()?.data as string | undefined) ?? null)
+    .catch(() => null);
+  pending.then((data) => data === null && thumbCache.delete(id));
+  thumbCache.set(id, pending);
+  return pending;
 }
 
 export function addCategory(uid: string, data: Omit<Category, 'id'>): string {
@@ -89,13 +120,18 @@ export function updateCategory(uid: string, id: string, patch: Partial<Omit<Cate
 
 const BATCH_LIMIT = 450;
 
-/** Exclui a gaveta e manda os links dela para a Caixa de entrada */
-export async function deleteCategory(uid: string, id: string, linkIds: string[]) {
-  for (let i = 0; i < linkIds.length; i += BATCH_LIMIT) {
+/**
+ * Exclui a gaveta sem perder nada: links e subpastas sobem um nível, para a
+ * gaveta de fora (parentId) ou, se ela era de topo, links vão para a Caixa de entrada.
+ */
+export async function deleteCategory(uid: string, id: string, linkIds: string[], childIds: string[], parentId: string | null) {
+  const writes = [
+    ...linkIds.map((lid) => ({ ref: doc(linksCol(uid), lid), patch: { categoryId: parentId } })),
+    ...childIds.map((cid) => ({ ref: doc(catsCol(uid), cid), patch: { parentId } })),
+  ];
+  for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db);
-    for (const lid of linkIds.slice(i, i + BATCH_LIMIT)) {
-      batch.update(doc(linksCol(uid), lid), { categoryId: null });
-    }
+    for (const w of writes.slice(i, i + BATCH_LIMIT)) batch.update(w.ref, w.patch);
     await batch.commit();
   }
   await deleteDoc(doc(catsCol(uid), id));

@@ -33,16 +33,46 @@ async function requireUrl() {
   return s;
 }
 
+/** Tira um print da aba, reduzido a 480×270. Só funciona se ela for a aba visível. */
+async function captureThumb(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.active) return null;
+    const shot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 85 });
+    const bytes = Uint8Array.from(atob(shot.split(',')[1]), (c) => c.charCodeAt(0));
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+
+    const W = 480;
+    const H = 270;
+    // Mantém o topo da página, que é a parte que identifica o site
+    const sourceHeight = Math.min(image.height, Math.round((image.width * H) / W));
+    const sourceWidth = Math.round((sourceHeight * W) / H);
+    const canvas = new OffscreenCanvas(W, H);
+    canvas.getContext('2d').drawImage(image, (image.width - sourceWidth) / 2, 0, sourceWidth, sourceHeight, 0, 0, W, H);
+    const out = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.72 })).arrayBuffer());
+
+    let binary = '';
+    for (const byte of out) binary += String.fromCharCode(byte);
+    return 'data:image/jpeg;base64,' + btoa(binary);
+  } catch {
+    return null; // o Gaveta tenta a imagem de preview do site
+  }
+}
+
 /** Abre a janelinha de "Guardar link" do Gaveta, já preenchida */
 async function saveOne({ url, title, tabId, close }) {
   const s = await requireUrl();
   if (!s) return;
   const rid = crypto.randomUUID();
+  // Antes de abrir a janelinha, enquanto a aba ainda está visível
+  const thumb = tabId != null ? await captureThumb(tabId) : null;
   const target = new URL(s.gavetaUrl);
   target.searchParams.set('add', url);
   if (title) target.searchParams.set('title', title);
   target.searchParams.set('rid', rid);
   target.searchParams.set('popup', '1');
+  // No hash, para o print não ir para o servidor na URL
+  if (thumb) target.hash = 'thumb=' + encodeURIComponent(thumb);
 
   const win = await chrome.windows.create({ url: target.href, type: 'popup', width: 520, height: 680, focused: true });
   await remember(rid, { tabIds: close && tabId != null ? [tabId] : [], popupWindowId: win.id });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { signOut, type User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import {
@@ -9,6 +9,7 @@ import {
   deleteLink,
   importLinks,
   moveLinks,
+  saveThumb,
   setAutoGroup,
   updateCategory,
   updateLink,
@@ -17,6 +18,8 @@ import {
 import type { Category, LinkItem } from '../lib/types';
 import { DRAG_LINK } from '../lib/types';
 import { planGrouping } from '../lib/grouping';
+import { ancestorsOf, totalsOf } from '../lib/tree';
+import { fetchThumb, isValidThumb } from '../lib/thumb';
 import { download, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
 import { Icon } from './Icon';
@@ -28,7 +31,7 @@ import { ExtensionModal } from './ExtensionModal';
 import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_INBOX } from './Sidebar';
 
 type LinkModalState =
-  | { mode: 'new'; initial: Partial<LinkItem>; rid?: string; closeAfter?: boolean }
+  | { mode: 'new'; initial: Partial<LinkItem>; rid?: string; closeAfter?: boolean; thumb?: string }
   | { mode: 'edit'; initial: LinkItem }
   | null;
 
@@ -64,6 +67,7 @@ export function Dashboard({ user }: { user: User }) {
   const [navOpen, setNavOpen] = useState(false);
   const [linkModal, setLinkModal] = useState<LinkModalState>(null);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
+  const [newParentId, setNewParentId] = useState<string | null>(null);
   const [importState, setImportState] = useState<ImportState>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extOpen, setExtOpen] = useState(false);
@@ -102,12 +106,15 @@ export function Dashboard({ user }: { user: User }) {
     const p = new URLSearchParams(window.location.search);
     const add = p.get('add');
     const fromHash = readHashPayload();
+    // Print da aba tirado pela extensão: /?add=...#thumb=data:image/jpeg;base64,...
+    const shot = window.location.hash.startsWith('#thumb=') ? decodeURIComponent(window.location.hash.slice('#thumb='.length)) : null;
     if (add) {
       setLinkModal({
         mode: 'new',
         initial: { url: add, title: p.get('title') ?? '' },
         rid: p.get('rid') ?? undefined,
         closeAfter: p.get('popup') === '1' || Boolean(window.opener),
+        thumb: isValidThumb(shot) ? shot : undefined,
       });
     } else if (fromHash) {
       setImportState(fromHash);
@@ -173,6 +180,21 @@ export function Dashboard({ user }: { user: User }) {
     });
   }
 
+  /** Guarda a miniatura do momento. Nunca é chamada de novo para o mesmo link. */
+  async function storeThumb(id: string, url: string, ready?: string) {
+    try {
+      const data = ready ?? (await fetchThumb(url));
+      if (data) await saveThumb(uid, id, data);
+    } catch {
+      /* sem miniatura: o card mostra o ícone do site */
+    }
+  }
+
+  function openNewCategory(parentId?: string) {
+    setNewParentId(parentId ?? null);
+    setCatModal('new');
+  }
+
   function findDuplicate(url: string, exceptId?: string) {
     const key = urlKey(url);
     return links.find((l) => l.id !== exceptId && urlKey(l.url) === key);
@@ -181,7 +203,7 @@ export function Dashboard({ user }: { user: User }) {
   type SaveResult = { error: string; duplicate?: boolean } | { error: null; saved: Promise<void> };
 
   /** keepInbox: a pessoa escolheu a Caixa de entrada de propósito (soltou o link nela) */
-  function saveNew(rawUrl: string, title: string, note: string, categoryId: string | null, keepInbox = false): SaveResult {
+  function saveNew(rawUrl: string, title: string, note: string, categoryId: string | null, keepInbox = false, thumb?: string): SaveResult {
     if (loading) return { error: 'Ainda carregando seus dados. Tente de novo em um instante.' };
     const url = normalizeUrl(rawUrl);
     if (!url) return { error: 'Esse link não parece válido.' };
@@ -197,9 +219,10 @@ export function Dashboard({ user }: { user: User }) {
       if (plan.newCategories.length) void createCategories(uid, plan.newCategories);
     }
     const { id, saved } = addLink(uid, { url, title: title || hostOf(url), note, categoryId: target, favorite: false, createdAt: Date.now() });
-    if (!title) void fillTitle(id, url);
+    // A janelinha da extensão só fecha depois de título e miniatura estarem gravados
+    const extras = [storeThumb(id, url, thumb), title ? null : fillTitle(id, url)];
     showToast(`Guardado em ${label}`);
-    return { error: null, saved };
+    return { error: null, saved: saved.then(() => Promise.all(extras)).then(() => undefined) };
   }
 
   function quickAdd(e: FormEvent) {
@@ -223,7 +246,7 @@ export function Dashboard({ user }: { user: User }) {
   function handleLinkSave(draft: LinkDraft): string | null {
     if (!linkModal) return null;
     if (linkModal.mode === 'new') {
-      const res = saveNew(draft.url, draft.title, draft.note, draft.categoryId);
+      const res = saveNew(draft.url, draft.title, draft.note, draft.categoryId, false, linkModal.thumb);
       if (res.error === null) {
         finishExternal(res.saved, linkModal.rid, linkModal.closeAfter);
         setLinkModal(null);
@@ -275,6 +298,7 @@ export function Dashboard({ user }: { user: User }) {
     showToast(grouped ? `${items.length} links agrupados por site` : `${items.length} links importados para ${catLabel(categoryId)}`);
     const missing = items.map((it, i) => ({ ...it, id: ids[i] })).filter((it) => !it.title);
     void pool(missing, 4, (it) => fillTitle(it.id, it.url));
+    void pool(items.map((it, i) => ({ url: it.url, id: ids[i] })), 3, (it) => storeThumb(it.id, it.url));
   }
 
   function moveLink(linkId: string, categoryId: string | null) {
@@ -337,6 +361,11 @@ export function Dashboard({ user }: { user: User }) {
           ? { emoji: null, title: 'Favoritos' }
           : { emoji: currentCategory?.emoji, title: currentCategory?.name ?? '' };
 
+  const inFolder = Boolean(currentCategory) && !isSearching;
+  const ancestors = currentCategory ? ancestorsOf(categories, currentCategory.id) : [];
+  const subfolders = currentCategory ? categories.filter((c) => c.parentId === currentCategory.id) : [];
+  const totals = totalsOf(categories, counts.byCat);
+
   const showCategoryChip = isSearching || view === VIEW_ALL || view === VIEW_FAV;
 
   return (
@@ -385,7 +414,7 @@ export function Dashboard({ user }: { user: User }) {
             setSearch('');
             setNavOpen(false);
           }}
-          onNewCategory={() => setCatModal('new')}
+          onNewCategory={openNewCategory}
           onEditCategory={(c) => setCatModal(c)}
           onDropLink={moveLink}
           onDropUrl={(url, categoryId) => dropUrl(url, categoryId, categoryId === null)}
@@ -416,6 +445,16 @@ export function Dashboard({ user }: { user: User }) {
           }}
         >
           <div className="content-head">
+            {inFolder && ancestors.length > 0 && (
+              <nav className="crumbs" aria-label="Caminho">
+                {ancestors.map((a) => (
+                  <Fragment key={a.id}>
+                    <button onClick={() => setView(a.id)}>{a.name}</button>
+                    <span aria-hidden="true">/</span>
+                  </Fragment>
+                ))}
+              </nav>
+            )}
             <div className="content-title">
               {heading.emoji && (
                 <span className="title-emoji" style={{ background: (currentCategory?.color ?? '#888') + '26' }}>
@@ -449,6 +488,33 @@ export function Dashboard({ user }: { user: User }) {
 
           {error && <div className="banner error">Erro ao carregar dados: {error}</div>}
 
+          {inFolder && currentCategory && (
+            <div className="subfolders">
+              {subfolders.map((c) => (
+                <button
+                  key={c.id}
+                  className="subfolder"
+                  onClick={() => setView(c.id)}
+                  onDragOver={(e) => e.dataTransfer.types.includes(DRAG_LINK) && (e.preventDefault(), e.stopPropagation())}
+                  onDrop={(e) => {
+                    const linkId = e.dataTransfer.getData(DRAG_LINK);
+                    if (!linkId) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    moveLink(linkId, c.id);
+                  }}
+                >
+                  <span className="cat-emoji" style={{ background: c.color + '26' }}>{c.emoji}</span>
+                  <span className="subfolder-name">{c.name}</span>
+                  <span className="nav-count">{totals.get(c.id) ?? 0}</span>
+                </button>
+              ))}
+              <button className="subfolder new" onClick={() => openNewCategory(currentCategory.id)}>
+                <Icon name="plus" size={15} /> Nova subpasta
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="grid">
               {Array.from({ length: 6 }, (_, i) => (
@@ -460,6 +526,7 @@ export function Dashboard({ user }: { user: User }) {
               {visible.map((l) => (
                 <LinkCard
                   key={l.id}
+                  uid={uid}
                   link={l}
                   category={catOf(l)}
                   showCategory={showCategoryChip}
@@ -475,7 +542,7 @@ export function Dashboard({ user }: { user: User }) {
               view={view}
               hasAny={links.length > 0}
               onImport={() => setImportState({})}
-              onNewCategory={() => setCatModal('new')}
+              onNewCategory={() => openNewCategory()}
             />
           )}
 
@@ -498,7 +565,10 @@ export function Dashboard({ user }: { user: User }) {
       {catModal && (
         <CategoryModal
           category={catModal === 'new' ? null : catModal}
+          categories={categories}
+          defaultParentId={newParentId}
           linkCount={catModal === 'new' ? 0 : counts.byCat.get(catModal.id) ?? 0}
+          childCount={catModal === 'new' ? 0 : categories.filter((c) => c.parentId === catModal.id).length}
           onClose={() => setCatModal(null)}
           onSave={(data) => {
             if (catModal === 'new') {
@@ -513,7 +583,9 @@ export function Dashboard({ user }: { user: User }) {
           onDelete={() => {
             if (catModal === 'new') return;
             const ids = links.filter((l) => l.categoryId === catModal.id).map((l) => l.id);
-            void deleteCategory(uid, catModal.id, ids);
+            const childIds = categories.filter((c) => c.parentId === catModal.id).map((c) => c.id);
+            const parentId = catModal.parentId && catById.has(catModal.parentId) ? catModal.parentId : null;
+            void deleteCategory(uid, catModal.id, ids, childIds, parentId);
             showToast(`Gaveta "${catModal.name}" excluída`);
             setCatModal(null);
           }}
