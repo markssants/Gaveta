@@ -267,6 +267,12 @@ kbd,
   gap: 10px;
   width: calc(var(--sidebar) - 28px);
   flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .brand-name {
   font-weight: 700;

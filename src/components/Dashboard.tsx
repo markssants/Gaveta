@@ -591,12 +591,21 @@ export function Dashboard({ user }: { user: User }) {
         <button className="icon-btn nav-toggle" onClick={() => setNavOpen(true)} aria-label="Abrir gavetas">
           <Icon name="menu" />
         </button>
-        <div className="brand">
+        <button
+          className="brand"
+          onClick={() => {
+            setView(VIEW_HOME);
+            setSearch('');
+            setNavOpen(false);
+          }}
+          title="Ir para o Início"
+          aria-label="Gaveta, ir para o Início"
+        >
           <span className="logo-mark">
             <Icon name="logo" size={18} />
           </span>
           <span className="brand-name">Gaveta</span>
-        </div>
+        </button>
         <div className="search">
           <Icon name="search" size={17} />
           <input
