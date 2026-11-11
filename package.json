@@ -4,9 +4,13 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/pack-extension.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/pack-extension.mjs",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ext:lint": "npx --yes web-ext lint --source-dir extension",
+    "ext:firefox": "npx --yes web-ext run --source-dir extension --start-url http://localhost:5180"
   },
   "dependencies": {
     "firebase": "^13.2.0",

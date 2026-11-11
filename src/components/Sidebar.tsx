@@ -19,6 +19,7 @@ type Props = {
   onDropLink: (linkId: string, categoryId: string | null) => void;
   onDropUrl: (url: string, categoryId: string | null) => void;
   onClose: () => void;
+  onOpenExtension: () => void;
 };
 
 export function Sidebar(p: Props) {
@@ -69,7 +70,12 @@ export function Sidebar(p: Props) {
             </button>
           )}
         </div>
-        <p className="nav-hint">Arraste um card para uma gaveta para mover.</p>
+        <div className="nav-foot">
+          <p className="nav-hint">Arraste um card para uma gaveta para mover.</p>
+          <button className="nav-ext" onClick={p.onOpenExtension}>
+            <Icon name="puzzle" size={16} /> Instalar extensão
+          </button>
+        </div>
       </nav>
     </>
   );

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="ui.css" />
+    <style>
+      body {
+        width: 320px;
+        padding: 14px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .link-btn {
+        border: 0;
+        background: none;
+        padding: 4px 6px;
+        border-radius: 6px;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12.5px;
+      }
+      .link-btn:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+      .current {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        min-width: 0;
+      }
+      .current img {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        flex: none;
+      }
+      .current div {
+        min-width: 0;
+      }
+      .current strong,
+      .current span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .current strong {
+        font-size: 13.5px;
+      }
+      .stack {
+        display: grid;
+        gap: 8px;
+      }
+      .opts {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border);
+        display: grid;
+        gap: 6px;
+      }
+      #setup {
+        display: grid;
+        gap: 10px;
+      }
+      #setup p {
+        margin: 0;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand"><img src="icons/48.png" alt="" /> Gaveta</div>
+      <div>
+        <button class="link-btn" id="open" title="Abrir o Gaveta">Abrir</button>
+        <button class="link-btn" id="settings" title="Configurações">⚙︎</button>
+      </div>
+    </header>
+
+    <section id="setup" hidden>
+      <p>Primeiro diga onde está o seu Gaveta (o endereço do site no Vercel).</p>
+      <button class="btn primary" id="goSetup">Configurar</button>
+    </section>
+
+    <section id="main" hidden>
+      <div class="current" id="current">
+        <img id="favicon" alt="" />
+        <div>
+          <strong id="title"></strong>
+          <span class="muted small" id="host"></span>
+        </div>
+      </div>
+      <div class="stack">
+        <button class="btn primary" id="saveOne">Guardar esta aba</button>
+        <button class="btn" id="saveAll">Guardar todas as abas desta janela</button>
+      </div>
+      <div class="opts">
+        <label class="check"><input type="checkbox" id="close" /> Fechar as abas depois de guardar</label>
+        <p class="muted small" style="margin: 0">As abas só fecham depois que o Gaveta confirmar que gravou. Abas fixadas não entram em "todas".</p>
+      </div>
+    </section>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

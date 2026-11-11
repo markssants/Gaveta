@@ -20,9 +20,35 @@ import { ImportModal } from './ImportModal';
 import { LinkCard } from './LinkCard';
 import { LinkModal, type LinkDraft } from './LinkModal';
 import { SettingsModal } from './SettingsModal';
+import { ExtensionModal } from './ExtensionModal';
 import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_INBOX } from './Sidebar';
 
-type LinkModalState = { mode: 'new'; initial: Partial<LinkItem>; fromBookmarklet?: boolean } | { mode: 'edit'; initial: LinkItem } | null;
+type LinkModalState =
+  | { mode: 'new'; initial: Partial<LinkItem>; rid?: string; closeAfter?: boolean }
+  | { mode: 'edit'; initial: LinkItem }
+  | null;
+
+type ImportState = { items?: { url: string; title: string }[]; rid?: string } | null;
+
+/** Avisa a extensão (via content script) que um pedido foi gravado, para ela fechar as abas */
+function notifyExtension(rid?: string) {
+  if (rid) window.postMessage({ source: 'gaveta-app', type: 'saved', rid }, window.location.origin);
+}
+
+/** Lê o pacote de abas enviado pela extensão em /#gaveta=... */
+function readHashPayload(): ImportState {
+  if (!window.location.hash.startsWith('#gaveta=')) return null;
+  try {
+    const data = JSON.parse(decodeURIComponent(window.location.hash.slice('#gaveta='.length)));
+    if (!Array.isArray(data.items)) return null;
+    const items = data.items
+      .filter((it: unknown): it is { url: string; title?: string } => typeof (it as { url?: unknown })?.url === 'string')
+      .map((it: { url: string; title?: string }) => ({ url: it.url, title: typeof it.title === 'string' ? it.title : '' }));
+    return { items, rid: typeof data.rid === 'string' ? data.rid : undefined };
+  } catch {
+    return null;
+  }
+}
 
 export function Dashboard({ user }: { user: User }) {
   const uid = user.uid;
@@ -34,8 +60,9 @@ export function Dashboard({ user }: { user: User }) {
   const [navOpen, setNavOpen] = useState(false);
   const [linkModal, setLinkModal] = useState<LinkModalState>(null);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
+  const [importState, setImportState] = useState<ImportState>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [extOpen, setExtOpen] = useState(false);
   const [dropActive, setDropActive] = useState(false);
   const [toast, setToast] = useState<{ msg: string; id: number } | null>(null);
 
@@ -65,14 +92,23 @@ export function Dashboard({ user }: { user: User }) {
     if (!loading && ![VIEW_ALL, VIEW_INBOX, VIEW_FAV].includes(view) && !catById.has(view)) setView(VIEW_ALL);
   }, [view, catById, loading]);
 
-  // Abertura via bookmarklet: /?add=URL&title=TÍTULO
+  // Abertura via bookmarklet/extensão: /?add=URL&title=TÍTULO[&rid=ID&popup=1]
+  // ou várias abas da extensão: /#gaveta={rid, items}
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const add = p.get('add');
+    const fromHash = readHashPayload();
     if (add) {
-      setLinkModal({ mode: 'new', initial: { url: add, title: p.get('title') ?? '' }, fromBookmarklet: true });
-      window.history.replaceState(null, '', window.location.pathname);
+      setLinkModal({
+        mode: 'new',
+        initial: { url: add, title: p.get('title') ?? '' },
+        rid: p.get('rid') ?? undefined,
+        closeAfter: p.get('popup') === '1' || Boolean(window.opener),
+      });
+    } else if (fromHash) {
+      setImportState(fromHash);
     }
+    if (add || window.location.hash) window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
   // Atalhos: "/" busca, "n" novo link
@@ -138,34 +174,54 @@ export function Dashboard({ user }: { user: User }) {
     return links.find((l) => l.id !== exceptId && urlKey(l.url) === key);
   }
 
-  function saveNew(rawUrl: string, title: string, note: string, categoryId: string | null): string | null {
+  type SaveResult = { error: string; duplicate?: boolean } | { error: null; saved: Promise<void> };
+
+  function saveNew(rawUrl: string, title: string, note: string, categoryId: string | null): SaveResult {
     const url = normalizeUrl(rawUrl);
-    if (!url) return 'Esse link não parece válido.';
+    if (!url) return { error: 'Esse link não parece válido.' };
     const dup = findDuplicate(url);
-    if (dup) return `Esse link já está guardado em ${catLabel(catOf(dup)?.id ?? null)}.`;
-    const id = addLink(uid, { url, title: title || hostOf(url), note, categoryId, favorite: false, createdAt: Date.now() });
+    if (dup) return { error: `Esse link já está guardado em ${catLabel(catOf(dup)?.id ?? null)}.`, duplicate: true };
+    const { id, saved } = addLink(uid, { url, title: title || hostOf(url), note, categoryId, favorite: false, createdAt: Date.now() });
     if (!title) void fillTitle(id, url);
     showToast(`Guardado em ${catLabel(categoryId)}`);
-    return null;
+    return { error: null, saved };
   }
 
   function quickAdd(e: FormEvent) {
     e.preventDefault();
     if (!quick.trim()) return;
-    const err = saveNew(quick, '', '', currentCategory?.id ?? null);
-    if (err) showToast(err);
+    const res = saveNew(quick, '', '', currentCategory?.id ?? null);
+    if (res.error) showToast(res.error);
     else setQuick('');
+  }
+
+  /** Depois de gravado no servidor: avisa a extensão e fecha a janelinha, se veio de uma */
+  function finishExternal(saved: Promise<void>, rid?: string, closeAfter?: boolean) {
+    saved
+      .then(() => {
+        notifyExtension(rid);
+        if (closeAfter) setTimeout(() => window.close(), 600);
+      })
+      .catch((e: Error) => showToast('Erro ao gravar: ' + e.message));
   }
 
   function handleLinkSave(draft: LinkDraft): string | null {
     if (!linkModal) return null;
     if (linkModal.mode === 'new') {
-      const err = saveNew(draft.url, draft.title, draft.note, draft.categoryId);
-      if (!err) {
-        if (linkModal.fromBookmarklet && window.opener) setTimeout(() => window.close(), 700);
+      const res = saveNew(draft.url, draft.title, draft.note, draft.categoryId);
+      if (res.error === null) {
+        finishExternal(res.saved, linkModal.rid, linkModal.closeAfter);
         setLinkModal(null);
+        return null;
       }
-      return err;
+      // Veio da extensão e já estava guardado: está seguro, pode fechar a aba
+      if (res.duplicate && linkModal.rid) {
+        showToast(res.error);
+        finishExternal(Promise.resolve(), linkModal.rid, linkModal.closeAfter);
+        setLinkModal(null);
+        return null;
+      }
+      return res.error;
     }
     const url = normalizeUrl(draft.url);
     if (!url) return 'Esse link não parece válido.';
@@ -182,6 +238,10 @@ export function Dashboard({ user }: { user: User }) {
   }
 
   async function handleImport(items: { url: string; title: string }[], categoryId: string | null) {
+    if (!items.length) {
+      showToast('Tudo isso já estava guardado');
+      return;
+    }
     const now = Date.now();
     const ids = await importLinks(
       uid,
@@ -207,8 +267,8 @@ export function Dashboard({ user }: { user: User }) {
   }
 
   function dropUrl(raw: string, categoryId: string | null) {
-    const err = saveNew(raw, '', '', categoryId);
-    if (err) showToast(err);
+    const res = saveNew(raw, '', '', categoryId);
+    if (res.error) showToast(res.error);
   }
 
   function removeLink(l: LinkItem) {
@@ -290,6 +350,10 @@ export function Dashboard({ user }: { user: User }) {
           onDropLink={moveLink}
           onDropUrl={dropUrl}
           onClose={() => setNavOpen(false)}
+          onOpenExtension={() => {
+            setNavOpen(false);
+            setExtOpen(true);
+          }}
         />
 
         <main
@@ -337,7 +401,7 @@ export function Dashboard({ user }: { user: User }) {
               <button type="submit" className="btn primary" disabled={!quick.trim()}>
                 <Icon name="plus" size={16} /> <span className="hide-sm">Guardar</span>
               </button>
-              <button type="button" className="btn" onClick={() => setImportOpen(true)} title="Importar vários links">
+              <button type="button" className="btn" onClick={() => setImportState({})} title="Importar vários links">
                 <Icon name="upload" size={16} /> <span className="hide-sm">Importar</span>
               </button>
             </form>
@@ -370,7 +434,7 @@ export function Dashboard({ user }: { user: User }) {
               searching={isSearching}
               view={view}
               hasAny={links.length > 0}
-              onImport={() => setImportOpen(true)}
+              onImport={() => setImportState({})}
               onNewCategory={() => setCatModal('new')}
             />
           )}
@@ -415,19 +479,34 @@ export function Dashboard({ user }: { user: User }) {
         />
       )}
 
-      {importOpen && (
+      {importState && (
         <ImportModal
           categories={categories}
           existingKeys={existingKeys}
           defaultCategoryId={currentCategory?.id ?? null}
-          onImport={handleImport}
-          onClose={() => setImportOpen(false)}
+          initialItems={importState.items}
+          onImport={async (items, categoryId) => {
+            await handleImport(items, categoryId);
+            notifyExtension(importState.rid);
+          }}
+          onClose={() => setImportState(null)}
         />
       )}
 
       {settingsOpen && (
-        <SettingsModal user={user} onExport={exportAll} onSignOut={() => void signOut(auth)} onClose={() => setSettingsOpen(false)} />
+        <SettingsModal
+          user={user}
+          onExport={exportAll}
+          onSignOut={() => void signOut(auth)}
+          onOpenExtension={() => {
+            setSettingsOpen(false);
+            setExtOpen(true);
+          }}
+          onClose={() => setSettingsOpen(false)}
+        />
       )}
+
+      {extOpen && <ExtensionModal onClose={() => setExtOpen(false)} />}
 
       {toast && (
         <div className="toast" key={toast.id} role="status">

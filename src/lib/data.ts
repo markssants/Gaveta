@@ -49,11 +49,13 @@ export function useUserData(uid: string) {
   return { categories, links, loading: !(ready.cats && ready.links), error };
 }
 
-/** Cria o link e retorna o id na hora (a escrita sincroniza em segundo plano) */
-export function addLink(uid: string, data: NewLink): string {
+/**
+ * Cria o link e retorna o id na hora. `saved` resolve quando o servidor
+ * confirma a gravação (a tela já atualiza antes disso, pelo cache local).
+ */
+export function addLink(uid: string, data: NewLink): { id: string; saved: Promise<void> } {
   const ref = doc(linksCol(uid));
-  void setDoc(ref, data);
-  return ref.id;
+  return { id: ref.id, saved: setDoc(ref, data) };
 }
 
 export function updateLink(uid: string, id: string, patch: Partial<NewLink>) {

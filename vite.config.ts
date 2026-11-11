@@ -20,5 +20,7 @@ function devApi(): Plugin {
 
 export default defineConfig({
   plugins: [react(), devApi()],
+  server: { port: 5180, strictPort: true },
+  preview: { port: 5180, strictPort: true },
   build: { chunkSizeWarningLimit: 1000 },
 });

@@ -1,0 +1,12 @@
+{
+  "headers": [
+    {
+      "source": "/downloads/(.*)\\.xpi",
+      "headers": [{ "key": "Content-Type", "value": "application/x-xpinstall" }]
+    },
+    {
+      "source": "/downloads/(.*)\\.zip",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}

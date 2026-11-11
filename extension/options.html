@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gaveta: configurações</title>
+    <link rel="stylesheet" href="ui.css" />
+    <style>
+      body {
+        display: grid;
+        place-items: start center;
+        min-height: 100vh;
+        padding: 48px 16px;
+      }
+      main {
+        width: 100%;
+        max-width: 480px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 18px 0 6px;
+      }
+      p {
+        margin: 0 0 16px;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        font-weight: 500;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      input[type='url'],
+      input[type='text'] {
+        width: 100%;
+        height: 40px;
+        padding: 0 12px;
+        border-radius: 9px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        outline: 0;
+      }
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .row .btn {
+        width: auto;
+      }
+      #status {
+        margin-top: 14px;
+        min-height: 20px;
+        font-size: 13.5px;
+      }
+      #status.ok {
+        color: #2e8b57;
+      }
+      #status.err {
+        color: var(--danger);
+      }
+      .tips {
+        margin-top: 24px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+      }
+      .tips li {
+        margin-bottom: 6px;
+      }
+      kbd {
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0 5px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand"><img src="icons/48.png" alt="" /> Gaveta</div>
+      <h1>Onde está o seu Gaveta?</h1>
+      <p class="muted">Cole o endereço do site, por exemplo <code>https://gaveta.vercel.app</code>. Para testar no computador, use <code>http://localhost:5180</code>.</p>
+
+      <form id="form">
+        <label>
+          Endereço do Gaveta
+          <input type="text" id="url" placeholder="https://seu-gaveta.vercel.app" required autocomplete="off" />
+        </label>
+        <div class="row">
+          <button class="btn primary" type="submit">Salvar</button>
+        </div>
+      </form>
+      <div id="status"></div>
+
+      <div class="tips muted small">
+        <ul>
+          <li>Clique no ícone da extensão para guardar a aba atual ou todas as abas da janela.</li>
+          <li>Atalho: <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> guarda a aba atual (dá pra trocar nas configurações de atalhos de extensões do navegador).</li>
+          <li>Botão direito numa página ou num link → <b>Guardar no Gaveta</b>.</li>
+        </ul>
+      </div>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

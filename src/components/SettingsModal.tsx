@@ -7,10 +7,11 @@ type Props = {
   user: User;
   onExport: () => void;
   onSignOut: () => void;
+  onOpenExtension: () => void;
   onClose: () => void;
 };
 
-export function SettingsModal({ user, onExport, onSignOut, onClose }: Props) {
+export function SettingsModal({ user, onExport, onSignOut, onOpenExtension, onClose }: Props) {
   const bmRef = useRef<HTMLAnchorElement>(null);
 
   // React bloqueia href="javascript:", então definimos direto no DOM
@@ -33,7 +34,15 @@ export function SettingsModal({ user, onExport, onSignOut, onClose }: Props) {
         </div>
 
         <section>
-          <h3>Botão "Guardar na Gaveta"</h3>
+          <h3>Extensão do navegador</h3>
+          <p className="muted small">O jeito mais prático: guarda a aba atual ou todas as abas da janela, no Vivaldi, Chrome, Edge, Brave ou Firefox.</p>
+          <button className="btn primary" onClick={onOpenExtension}>
+            <Icon name="puzzle" size={16} /> Instalar extensão
+          </button>
+        </section>
+
+        <section>
+          <h3>Botão "Guardar na Gaveta" (sem instalar nada)</h3>
           <p className="muted small">
             Arraste o botão abaixo para a barra de favoritos do navegador. Em qualquer site, clique nele para guardar a página atual sem sair dela.
           </p>
