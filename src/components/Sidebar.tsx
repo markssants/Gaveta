@@ -30,15 +30,11 @@ type Props = {
 };
 
 export function Sidebar(p: Props) {
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  // Tudo começa recolhido a cada vez que o site abre: nada é guardado entre visitas
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
+  const [generalOpen, setGeneralOpen] = useState(false);
   const [rootOver, setRootOver] = useState(false);
-  // Seção "Geral" pode ser recolhida para dar foco nas gavetas
-  const [generalOpen, setGeneralOpen] = useState(() => readFlag(GENERAL_KEY) !== 'closed');
-  function toggleGeneral() {
-    const next = !generalOpen;
-    setGeneralOpen(next);
-    writeFlag(GENERAL_KEY, next ? 'open' : 'closed');
-  }
+  const toggleGeneral = () => setGeneralOpen((open) => !open);
   const { roots, children } = useMemo(() => buildTree(p.categories), [p.categories]);
   const totals = useMemo(() => totalsOf(p.categories, p.counts.byCat), [p.categories, p.counts.byCat]);
   // A gaveta aberta fica sempre visível, mesmo dentro de uma pasta recolhida
@@ -51,19 +47,16 @@ export function Sidebar(p: Props) {
     .sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0) || a.name.localeCompare(b.name));
 
   function toggle(id: string) {
-    const next = new Set(collapsed);
-    if (!next.delete(id)) next.add(id);
-    setCollapsed(next);
-    try {
-      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
-    } catch {
-      /* sem armazenamento: vale só nesta sessão */
-    }
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   }
 
   function renderNode(c: Category, depth: number): ReactNode {
     const kids = children.get(c.id) ?? [];
-    const expanded = !collapsed.has(c.id) || openPath.has(c.id);
+    const expanded = expandedIds.has(c.id) || openPath.has(c.id);
     return (
       <Fragment key={c.id}>
         <NavItem
@@ -176,33 +169,6 @@ export function Sidebar(p: Props) {
       </nav>
     </>
   );
-}
-
-const COLLAPSED_KEY = 'gaveta-collapsed';
-const GENERAL_KEY = 'gaveta-general';
-
-function readFlag(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeFlag(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* sem armazenamento: vale só nesta sessão */
-  }
-}
-
-function readCollapsed(): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as string[]);
-  } catch {
-    return new Set();
-  }
 }
 
 function NavItem({
