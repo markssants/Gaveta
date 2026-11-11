@@ -24,6 +24,27 @@ function extractTitle(html) {
   return raw ? decode(raw).slice(0, 300) : null;
 }
 
+// Sites de vídeo bloqueiam a leitura direta do HTML, mas têm uma API oEmbed oficial
+const OEMBED = [
+  { test: /(^|\.)(youtube\.com|youtu\.be)$/i, endpoint: 'https://www.youtube.com/oembed?format=json&url=' },
+  { test: /(^|\.)vimeo\.com$/i, endpoint: 'https://vimeo.com/api/oembed.json?url=' },
+];
+
+async function oembedTitle(target, signal) {
+  const provider = OEMBED.find((p) => p.test.test(target.hostname));
+  if (!provider) return undefined;
+  try {
+    const r = await fetch(provider.endpoint + encodeURIComponent(target.href), { signal });
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!data.title) return null;
+    // Guarda também o canal: ajuda a achar o vídeo de novo se ele sumir
+    return data.author_name ? `${data.title} · ${data.author_name}` : data.title;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   let target;
   try {
@@ -38,6 +59,12 @@ export default async function handler(req, res) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 6000);
   try {
+    const fromOembed = await oembedTitle(target, ctrl.signal);
+    if (fromOembed) {
+      res.setHeader('cache-control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+      return res.status(200).json({ title: fromOembed });
+    }
+
     const r = await fetch(target, {
       signal: ctrl.signal,
       redirect: 'follow',
