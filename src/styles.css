@@ -554,20 +554,26 @@ body.dragging-link .nav-group:first-child .nav-item:nth-child(2) {
 
 .quick-add {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
 }
-.quick-add input {
+.quick-add textarea {
   flex: 1;
   min-width: 0;
   height: 38px;
-  padding: 0 12px;
+  min-height: 38px;
+  max-height: 200px;
+  padding: 8px 12px;
+  line-height: 20px;
+  resize: none;
+  overflow-y: auto;
   border-radius: 9px;
   border: 1px solid var(--border);
   background: var(--surface);
   outline: 0;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.quick-add input:focus {
+.quick-add textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
@@ -1438,4 +1444,8 @@ em.muted {
   .new-folder {
     grid-template-columns: 1fr;
   }
+}
+
+.quick-hint {
+  margin: -8px 0 0;
 }

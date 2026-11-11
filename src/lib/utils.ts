@@ -117,3 +117,22 @@ export function cleanItems(items: { url: string; title: string }[]): { url: stri
   }
   return out;
 }
+
+/**
+ * Links do campo rápido: um ou vários, separados por linha, espaço ou vírgula.
+ * Se o texto tiver algum link com http(s)://, só esses contam (evita que palavras
+ * como "Node.js" num título virem link). Sem nenhum, aceita "site.com".
+ */
+export function parseQuick(text: string): string[] {
+  const explicit = text.match(/https?:\/\/[^\s<>"'|]+/gi);
+  const tokens = explicit ?? text.split(/[\s,;]+/);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const token of tokens) {
+    const url = normalizeUrl(token.replace(/^[<("']+/, '').replace(/[>)"'.,;]+$/, ''));
+    if (!url || seen.has(urlKey(url))) continue;
+    seen.add(urlKey(url));
+    out.push(url);
+  }
+  return out;
+}

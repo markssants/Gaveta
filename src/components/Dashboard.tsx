@@ -20,7 +20,7 @@ import { CATEGORY_COLORS, DRAG_LINK } from '../lib/types';
 import { planGrouping } from '../lib/grouping';
 import { ancestorsOf, flattenTree, totalsOf } from '../lib/tree';
 import { fetchThumb, isValidThumb } from '../lib/thumb';
-import { cleanItems, download, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
+import { cleanItems, download, parseQuick, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
 import { Icon } from './Icon';
 import { ImportModal } from './ImportModal';
@@ -86,6 +86,8 @@ export function Dashboard({ user }: { user: User }) {
   const [view, setView] = useState(VIEW_ALL);
   const [search, setSearch] = useState('');
   const [quick, setQuick] = useState('');
+  const [quickBusy, setQuickBusy] = useState(false);
+  const quickRef = useRef<HTMLTextAreaElement>(null);
   const [navOpen, setNavOpen] = useState(false);
   const [linkModal, setLinkModal] = useState<LinkModalState>(null);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
@@ -134,9 +136,12 @@ export function Dashboard({ user }: { user: User }) {
   const currentCategory = catById.get(view) ?? null;
   const isSearching = search.trim().length > 0;
 
-  // Se a gaveta aberta for excluída, volta para "Tudo"
+  // Se a gaveta aberta for excluída, volta para "Tudo".
+  // Gavetas recém-criadas ainda não chegaram na lista: essas não contam como excluídas.
+  const justCreated = useRef(new Set<string>());
   useEffect(() => {
-    if (!loading && ![VIEW_ALL, VIEW_INBOX, VIEW_FAV].includes(view) && !catById.has(view)) setView(VIEW_ALL);
+    if (catById.has(view)) justCreated.current.delete(view);
+    else if (!loading && ![VIEW_ALL, VIEW_INBOX, VIEW_FAV].includes(view) && !justCreated.current.has(view)) setView(VIEW_ALL);
   }, [view, catById, loading]);
 
   // Abertura via bookmarklet/extensão: /?add=URL&title=TÍTULO[&rid=ID&popup=1]
@@ -208,6 +213,10 @@ export function Dashboard({ user }: { user: User }) {
   }, [links, catById]);
 
   const existingKeys = useMemo(() => new Set(links.map((l) => urlKey(l.url))), [links]);
+
+  const quickUrls = useMemo(() => parseQuick(quick), [quick]);
+  const quickCount = quickUrls.length;
+  const quickDupes = useMemo(() => quickUrls.filter((u) => existingKeys.has(urlKey(u))).length, [quickUrls, existingKeys]);
 
   // Manda a lista de gavetas para a extensão mostrar no seletor dela
   useEffect(() => {
@@ -310,12 +319,42 @@ export function Dashboard({ user }: { user: User }) {
     return { error: null, saved: saved.then(() => Promise.all(extras)).then(() => undefined) };
   }
 
-  function quickAdd(e: FormEvent) {
+  function setQuickText(value: string) {
+    setQuick(value);
+    // Cresce junto com o texto, até umas 8 linhas
+    const el = quickRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      if (value) el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    }
+  }
+
+  async function quickAdd(e: FormEvent) {
     e.preventDefault();
-    if (!quick.trim()) return;
-    const res = saveNew(quick, '', '', currentCategory?.id ?? null);
-    if (res.error) showToast(res.error);
-    else setQuick('');
+    if (!quick.trim() || quickBusy) return;
+    const urls = parseQuick(quick);
+    if (!urls.length) return showToast('Nenhum link válido encontrado.');
+
+    if (urls.length === 1) {
+      const res = saveNew(urls[0], '', '', currentCategory?.id ?? null);
+      if (res.error) showToast(res.error);
+      else setQuickText('');
+      return;
+    }
+
+    if (loading) return showToast('Ainda carregando seus dados. Tente de novo em um instante.');
+    const fresh = urls.filter((url) => !existingKeys.has(urlKey(url))).map((url) => ({ url, title: '' }));
+    const dupes = urls.length - fresh.length;
+    setQuickBusy(true);
+    try {
+      await handleImport(fresh, currentCategory?.id ?? null);
+      if (dupes && fresh.length) showToast(`${fresh.length} links guardados · ${dupes} já estavam guardados`);
+      setQuickText('');
+    } catch (err) {
+      showToast('Não deu pra guardar: ' + (err as Error).message);
+    } finally {
+      setQuickBusy(false);
+    }
   }
 
   // Guarda direto o que a extensão mandou, assim que os dados carregarem
@@ -594,19 +633,35 @@ export function Dashboard({ user }: { user: User }) {
             </div>
 
             <form className="quick-add" onSubmit={quickAdd}>
-              <input
+              <textarea
+                ref={quickRef}
+                rows={1}
                 value={quick}
-                onChange={(e) => setQuick(e.target.value)}
-                placeholder={`Cole um link para guardar em ${currentCategory ? currentCategory.name : autoGroup ? 'a gaveta do site' : 'Caixa de entrada'}…`}
-                aria-label="Novo link"
+                onChange={(e) => setQuickText(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter guarda; Shift+Enter pula linha
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder={`Cole um ou vários links para guardar em ${currentCategory ? currentCategory.name : autoGroup ? 'a gaveta do site' : 'Caixa de entrada'}…`}
+                aria-label="Novos links"
               />
-              <button type="submit" className="btn primary" disabled={!quick.trim()}>
-                <Icon name="plus" size={16} /> <span className="hide-sm">Guardar</span>
+              <button type="submit" className="btn primary" disabled={!quick.trim() || quickBusy}>
+                <Icon name="plus" size={16} />{' '}
+                <span className="hide-sm">{quickBusy ? 'Guardando…' : quickCount > 1 ? `Guardar ${quickCount}` : 'Guardar'}</span>
               </button>
               <button type="button" className="btn" onClick={() => setImportState({})} title="Importar vários links">
                 <Icon name="upload" size={16} /> <span className="hide-sm">Importar</span>
               </button>
             </form>
+            {quickCount > 1 && (
+              <p className="quick-hint muted small">
+                {quickCount} links
+                {quickDupes > 0 && ` · ${quickDupes} já ${quickDupes === 1 ? 'guardado' : 'guardados'}`} · Enter guarda todos, Shift+Enter pula linha
+              </p>
+            )}
           </div>
 
           {error && <div className="banner error">Erro ao carregar dados: {error}</div>}
@@ -699,8 +754,12 @@ export function Dashboard({ user }: { user: User }) {
           onSave={(data) => {
             if (catModal === 'new') {
               const id = addCategory(uid, { ...data, order: Date.now(), createdAt: Date.now() });
-              setView(id);
-              setSearch('');
+              // Subpasta: continua na gaveta atual, onde ela aparece. Gaveta principal: abre ela.
+              if (!data.parentId) {
+                justCreated.current.add(id);
+                setView(id);
+                setSearch('');
+              }
             } else {
               void updateCategory(uid, catModal.id, data);
             }

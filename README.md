@@ -7,7 +7,7 @@ Painel pessoal para salvar links organizados por categorias ("gavetas"), feito p
 ## Funcionalidades
 
 - **Gavetas** com nome, emoji e cor, além de **Caixa de entrada** (links ainda não organizados) e **Favoritos**
-- **Guardar rápido**: cole um link e aperte Enter; o título da página é buscado automaticamente
+- **Guardar rápido**: cole um ou vários links de uma vez (um por linha ou separados por espaço) e aperte Enter; o título da página é buscado automaticamente
 - **O título fica congelado**: ele é gravado no momento em que você salva e nunca é atualizado depois. Se um vídeo for removido, o card continua mostrando o nome original. Vídeos do YouTube e do Vimeo são salvos como `Título · Canal`
 - **Importar abas em massa**: cole uma lista de links (um por linha, ou no formato do OneTab `url | título`). Links repetidos são ignorados
 - **Miniatura congelada**: a imagem é gravada no momento em que você salva e só muda se você clicar no ícone de recarregar do card. A extensão tira um print da aba atual; nos outros casos, o Gaveta usa a imagem de preview do site (no YouTube e no Vimeo, a capa do vídeo)
