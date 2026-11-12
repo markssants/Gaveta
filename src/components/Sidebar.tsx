@@ -30,11 +30,16 @@ type Props = {
 };
 
 export function Sidebar(p: Props) {
-  // Tudo começa recolhido a cada vez que o site abre: nada é guardado entre visitas
-  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
-  const [generalOpen, setGeneralOpen] = useState(false);
+  // Na primeira visita tudo começa recolhido. Depois, o site lembra o último jeito usado.
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set(readJson<string[]>(EXPANDED_KEY, [])));
+  const [generalOpen, setGeneralOpen] = useState(() => readJson<boolean>(GENERAL_KEY, false));
   const [rootOver, setRootOver] = useState(false);
-  const toggleGeneral = () => setGeneralOpen((open) => !open);
+
+  function toggleGeneral() {
+    const next = !generalOpen;
+    setGeneralOpen(next);
+    writeJson(GENERAL_KEY, next);
+  }
   const { roots, children } = useMemo(() => buildTree(p.categories), [p.categories]);
   const totals = useMemo(() => totalsOf(p.categories, p.counts.byCat), [p.categories, p.counts.byCat]);
   // A gaveta aberta fica sempre visível, mesmo dentro de uma pasta recolhida
@@ -47,11 +52,11 @@ export function Sidebar(p: Props) {
     .sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0) || a.name.localeCompare(b.name));
 
   function toggle(id: string) {
-    setExpandedIds((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+    const next = new Set(expandedIds);
+    if (!next.delete(id)) next.add(id);
+    setExpandedIds(next);
+    // Só guarda gavetas que ainda existem, para a lista não crescer com o tempo
+    writeJson(EXPANDED_KEY, [...next].filter((x) => p.categories.some((c) => c.id === x)));
   }
 
   function renderNode(c: Category, depth: number): ReactNode {
@@ -169,6 +174,27 @@ export function Sidebar(p: Props) {
       </nav>
     </>
   );
+}
+
+// Nomes novos: as versões antigas guardavam o contrário (o que estava recolhido)
+const EXPANDED_KEY = 'gaveta-nav-expanded';
+const GENERAL_KEY = 'gaveta-nav-general-open';
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : (JSON.parse(raw) as T);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* sem armazenamento: vale só nesta sessão */
+  }
 }
 
 function NavItem({
