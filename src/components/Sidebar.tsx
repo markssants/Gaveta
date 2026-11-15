@@ -20,6 +20,7 @@ type Props = {
   onSelect: (view: string) => void;
   onNewCategory: (parentId?: string) => void;
   onEditCategory: (c: Category) => void;
+  onToggleFolderFavorite: (c: Category) => void;
   /** categoryId null = Caixa de entrada */
   onDropLink: (linkId: string, categoryId: string | null) => void;
   onDropUrl: (url: string, categoryId: string | null) => void;
@@ -59,6 +60,19 @@ export function Sidebar(p: Props) {
     writeJson(EXPANDED_KEY, [...next].filter((x) => p.categories.some((c) => c.id === x)));
   }
 
+  // Gavetas e subpastas favoritas, em qualquer nível, numa lista só para achar rápido
+  const favorites = useMemo(
+    () => p.categories.filter((c) => c.favorite).sort((a, b) => a.name.localeCompare(b.name)),
+    [p.categories],
+  );
+  const pathOf = (c: Category) =>
+    ancestorsOf(p.categories, c.id)
+      .map((a) => a.name)
+      .join(' / ');
+
+  const iconOf = (c: Category) =>
+    c.domain ? <Favicon url={`https://${c.domain}`} size={18} /> : <span className="cat-emoji" style={{ background: c.color + '26' }}>{c.emoji}</span>;
+
   function renderNode(c: Category, depth: number): ReactNode {
     const kids = children.get(c.id) ?? [];
     const expanded = expandedIds.has(c.id) || openPath.has(c.id);
@@ -67,15 +81,11 @@ export function Sidebar(p: Props) {
         <NavItem
           active={p.view === c.id}
           onClick={() => p.onSelect(c.id)}
-          icon={
-            c.domain ? (
-              <Favicon url={`https://${c.domain}`} size={18} />
-            ) : (
-              <span className="cat-emoji" style={{ background: c.color + '26' }}>{c.emoji}</span>
-            )
-          }
+          icon={iconOf(c)}
           label={c.name}
           count={totals.get(c.id) ?? 0}
+          favorite={c.favorite}
+          onToggleFavorite={() => p.onToggleFolderFavorite(c)}
           depth={depth}
           expanded={kids.length ? expanded : undefined}
           onToggle={() => toggle(c.id)}
@@ -122,6 +132,32 @@ export function Sidebar(p: Props) {
           <NavItem active={p.view === VIEW_LATER} onClick={() => p.onSelect(VIEW_LATER)} icon={<Icon name="clock" size={17} />} label="Ver depois" count={p.counts.later} />
           <NavItem active={p.view === VIEW_IMPORTANT} onClick={() => p.onSelect(VIEW_IMPORTANT)} icon={<Icon name="flag" size={17} />} label="Importante" count={p.counts.important} />
         </div>
+
+        {favorites.length > 0 && (
+          <>
+            <div className="nav-heading nav-favs-head">
+              <span>Favoritas</span>
+            </div>
+            <div className="nav-group nav-cats">
+              {favorites.map((c) => (
+                <NavItem
+                  key={c.id}
+                  active={p.view === c.id}
+                  onClick={() => p.onSelect(c.id)}
+                  icon={iconOf(c)}
+                  label={c.name}
+                  hint={pathOf(c)}
+                  count={totals.get(c.id) ?? 0}
+                  favorite
+                  onToggleFavorite={() => p.onToggleFolderFavorite(c)}
+                  dropTarget={c.id}
+                  onDropLink={p.onDropLink}
+                  onDropUrl={p.onDropUrl}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         <div
           className={'nav-heading nav-root' + (rootOver ? ' drop-over' : '')}
@@ -204,6 +240,9 @@ function NavItem({
   label,
   count,
   hideCount,
+  hint,
+  favorite,
+  onToggleFavorite,
   depth,
   expanded,
   onToggle,
@@ -222,6 +261,10 @@ function NavItem({
   label: string;
   count: number;
   hideCount?: boolean;
+  /** Caminho da gaveta (ex.: "Estudos / React"), mostrado em letra pequena */
+  hint?: string;
+  favorite?: boolean;
+  onToggleFavorite?: () => void;
   /** Presente nos itens da árvore de gavetas */
   depth?: number;
   /** undefined = não tem subpastas */
@@ -293,17 +336,40 @@ function NavItem({
       )}
       <button className="nav-btn" onClick={onClick}>
         <span className="nav-icon">{icon}</span>
-        <span className="nav-label">{label}</span>
+        <span className="nav-label">
+          {label}
+          {hint && <small className="nav-path">{hint}</small>}
+        </span>
+        {favorite && (
+          <span className="nav-fav-mark" aria-label="Favorita">
+            <Icon name="star" size={12} filled />
+          </span>
+        )}
         {!hideCount && <span className="nav-count">{count}</span>}
       </button>
-      {onEdit && (
+      {(onEdit || onToggleFavorite) && (
         <div className="nav-actions">
-          <button className="icon-btn sm" onClick={onAddChild} title={`Nova subpasta em ${label}`} aria-label={`Nova subpasta em ${label}`}>
-            <Icon name="plus" size={14} />
-          </button>
-          <button className="icon-btn sm" onClick={onEdit} title={`Editar ${label}`} aria-label={`Editar ${label}`}>
-            <Icon name="edit" size={13} />
-          </button>
+          {onToggleFavorite && (
+            <button
+              className={'icon-btn sm' + (favorite ? ' fav-on' : '')}
+              onClick={onToggleFavorite}
+              title={favorite ? 'Tirar das favoritas' : 'Favoritar esta gaveta'}
+              aria-label={favorite ? `Tirar ${label} das favoritas` : `Favoritar ${label}`}
+              aria-pressed={Boolean(favorite)}
+            >
+              <Icon name="star" size={14} filled={favorite} />
+            </button>
+          )}
+          {onAddChild && (
+            <button className="icon-btn sm" onClick={onAddChild} title={`Nova subpasta em ${label}`} aria-label={`Nova subpasta em ${label}`}>
+              <Icon name="plus" size={14} />
+            </button>
+          )}
+          {onEdit && (
+            <button className="icon-btn sm" onClick={onEdit} title={`Editar ${label}`} aria-label={`Editar ${label}`}>
+              <Icon name="edit" size={13} />
+            </button>
+          )}
         </div>
       )}
     </div>

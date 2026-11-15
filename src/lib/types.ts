@@ -9,6 +9,8 @@ export type Category = {
   parentId?: string | null;
   /** Preenchido nas gavetas criadas pelo agrupamento automático */
   domain?: string;
+  /** Fixada na seção "Favoritas" da barra lateral */
+  favorite?: boolean;
 };
 
 export type LinkItem = {

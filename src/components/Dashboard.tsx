@@ -642,6 +642,7 @@ export function Dashboard({ user }: { user: User }) {
           }}
           onNewCategory={openNewCategory}
           onEditCategory={(c) => setCatModal(c)}
+          onToggleFolderFavorite={(c) => void updateCategory(uid, c.id, { favorite: !c.favorite })}
           onDropLink={moveLink}
           onDropUrl={(url, categoryId) => dropUrl(url, categoryId, categoryId === null)}
           onMoveFolder={moveFolder}
