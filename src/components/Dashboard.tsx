@@ -7,6 +7,8 @@ import {
   createCategories,
   deleteCategory,
   deleteLink,
+  deleteLinks,
+  updateLinks,
   importLinks,
   moveLinks,
   recordVisit,
@@ -31,6 +33,8 @@ import { SettingsModal } from './SettingsModal';
 import { ExtensionModal } from './ExtensionModal';
 import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_HOME, VIEW_IMPORTANT, VIEW_INBOX, VIEW_LATER } from './Sidebar';
 import { Home } from './Home';
+import { SelectionBar } from './SelectionBar';
+import { useMarquee } from '../lib/useMarquee';
 import { FolderTile } from './FolderTile';
 
 type LinkModalState =
@@ -107,6 +111,10 @@ export function Dashboard({ user }: { user: User }) {
   const [toast, setToast] = useState<{ msg: string; id: number } | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLElement>(null);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
   const linksRef = useRef(links);
   linksRef.current = links;
 
@@ -196,6 +204,8 @@ export function Dashboard({ user }: { user: User }) {
       if (e.key === '/') {
         e.preventDefault();
         searchRef.current?.focus();
+      } else if (e.key === 'Escape' && selectedRef.current.size) {
+        setSelected(new Set());
       } else if (e.key === 'n') {
         e.preventDefault();
         setLinkModal({ mode: 'new', initial: { categoryId: currentCategory?.id ?? null } });
@@ -480,6 +490,8 @@ export function Dashboard({ user }: { user: User }) {
   }
 
   function moveLink(linkId: string, categoryId: string | null) {
+    // Arrastar um card selecionado leva todos os selecionados junto
+    if (selectedRef.current.has(linkId) && selectedRef.current.size > 1) return bulkMove(categoryId);
     const l = links.find((x) => x.id === linkId);
     if (!l || (catOf(l)?.id ?? null) === categoryId) return;
     // O destaque vale só na gaveta onde foi dado
@@ -568,6 +580,59 @@ export function Dashboard({ user }: { user: User }) {
   const subfolders = currentCategory ? categories.filter((c) => c.parentId === currentCategory.id) : [];
   const totals = totalsOf(categories, counts.byCat);
 
+  const onHomeView = view === VIEW_HOME && !isSearching;
+
+  // A seleção vale só para a tela atual
+  useEffect(() => {
+    setSelected(new Set());
+  }, [view, search]);
+
+  // Links excluídos (ou que saíram da tela) deixam de estar selecionados
+  useEffect(() => {
+    const present = new Set(visible.map((l) => l.id));
+    if ([...selectedRef.current].some((id) => !present.has(id))) setSelected(new Set([...selectedRef.current].filter((id) => present.has(id))));
+  }, [visible]);
+
+  useEffect(() => {
+    document.body.classList.toggle('has-selection', selected.size > 0);
+    return () => document.body.classList.remove('has-selection');
+  }, [selected.size > 0]);
+
+  const marquee = useMarquee({
+    container: contentRef,
+    enabled: !onHomeView && !loading,
+    getBase: () => selectedRef.current,
+    onSelect: setSelected,
+    onClear: () => setSelected(new Set()),
+  });
+
+  const selectedLinks = visible.filter((l) => selected.has(l.id));
+
+  /** Aplica a mesma mudança a todos os selecionados */
+  function bulkMove(categoryId: string | null) {
+    const ids = selectedLinks.filter((l) => (catOf(l)?.id ?? null) !== categoryId).map((l) => l.id);
+    if (!ids.length) return showToast(`Já estão em ${catLabel(categoryId)}`);
+    // O destaque vale só na gaveta onde foi dado
+    void updateLinks(uid, ids, { categoryId, pinned: false });
+    setSelected(new Set());
+    showToast(`${ids.length} ${ids.length === 1 ? 'link movido' : 'links movidos'} para ${catLabel(categoryId)}`);
+  }
+
+  function bulkToggle(field: 'favorite' | 'important' | 'later') {
+    const turnOn = !selectedLinks.every((l) => l[field]);
+    void updateLinks(uid, selectedLinks.map((l) => l.id), { [field]: turnOn });
+    const names = { favorite: 'Favoritos', important: 'Importante', later: 'Ver depois' };
+    showToast(turnOn ? `${selectedLinks.length} adicionados a ${names[field]}` : `${selectedLinks.length} tirados de ${names[field]}`);
+  }
+
+  function bulkDelete() {
+    const n = selectedLinks.length;
+    if (!confirm(`Excluir ${n} ${n === 1 ? 'link' : 'links'}? Isso não pode ser desfeito.`)) return;
+    void deleteLinks(uid, selectedLinks.map((l) => l.id));
+    setSelected(new Set());
+    showToast(`${n} ${n === 1 ? 'link excluído' : 'links excluídos'}`);
+  }
+
   const showCategoryChip = isSearching || [VIEW_ALL, VIEW_FAV, VIEW_LATER, VIEW_IMPORTANT, VIEW_HOME].includes(view);
   const onHome = view === VIEW_HOME && !isSearching;
 
@@ -578,6 +643,15 @@ export function Dashboard({ user }: { user: User }) {
       link={l}
       category={catOf(l)}
       showCategory={showCategoryChip}
+      selected={selected.has(l.id)}
+      selecting={selected.size > 0}
+      onToggleSelect={() =>
+        setSelected((current) => {
+          const next = new Set(current);
+          if (!next.delete(l.id)) next.add(l.id);
+          return next;
+        })
+      }
       pinnable={Boolean(currentCategory) && !isSearching && l.categoryId === currentCategory!.id}
       refreshing={refreshing.has(l.id)}
       onRefreshThumb={() => void refreshThumb(l)}
@@ -661,6 +735,7 @@ export function Dashboard({ user }: { user: User }) {
         />
 
         <main
+          ref={contentRef}
           className={'content' + (dropActive ? ' drop-active' : '')}
           onDragOver={(e) => {
             if (e.dataTransfer.types.includes(DRAG_LINK) || !e.dataTransfer.types.includes('text/uri-list')) return;
@@ -896,6 +971,24 @@ export function Dashboard({ user }: { user: User }) {
       )}
 
       {extOpen && <ExtensionModal onClose={() => setExtOpen(false)} />}
+
+      {marquee && <div className="marquee" style={marquee} />}
+
+      {selected.size > 0 && (
+        <SelectionBar
+          count={selectedLinks.length}
+          total={visible.length}
+          categories={categories}
+          allFavorite={selectedLinks.every((l) => l.favorite)}
+          allImportant={selectedLinks.every((l) => l.important)}
+          allLater={selectedLinks.every((l) => l.later)}
+          onMove={bulkMove}
+          onToggle={bulkToggle}
+          onDelete={bulkDelete}
+          onSelectAll={() => setSelected(new Set(visible.map((l) => l.id)))}
+          onClear={() => setSelected(new Set())}
+        />
+      )}
 
       {toast && (
         <div className="toast" key={toast.id} role="status">

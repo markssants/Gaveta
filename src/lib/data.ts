@@ -90,6 +90,29 @@ export function deleteLink(uid: string, id: string) {
   return batch.commit();
 }
 
+/** Atualiza vários links de uma vez (em lotes, por causa do limite do Firestore) */
+export async function updateLinks(uid: string, ids: string[], patch: Partial<NewLink>) {
+  for (let i = 0; i < ids.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const id of ids.slice(i, i + BATCH_LIMIT)) batch.update(doc(linksCol(uid), id), patch);
+    await batch.commit();
+  }
+}
+
+/** Exclui vários links e as miniaturas deles */
+export async function deleteLinks(uid: string, ids: string[]) {
+  const PER_BATCH = Math.floor(BATCH_LIMIT / 2); // 2 exclusões por link
+  for (let i = 0; i < ids.length; i += PER_BATCH) {
+    const batch = writeBatch(db);
+    for (const id of ids.slice(i, i + PER_BATCH)) {
+      batch.delete(doc(linksCol(uid), id));
+      batch.delete(thumbDoc(uid, id));
+      thumbCache.delete(id);
+    }
+    await batch.commit();
+  }
+}
+
 // A miniatura só muda quando recarregada à mão, e aí o link ganha um novo thumbAt
 const thumbCache = new Map<string, { version?: number; pending: Promise<string | null> }>();
 

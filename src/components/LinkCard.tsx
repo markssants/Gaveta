@@ -13,6 +13,10 @@ type Props = {
   showCategory: boolean;
   /** Está sendo mostrado dentro da própria gaveta: libera o botão de fixar nela */
   pinnable: boolean;
+  selected: boolean;
+  /** Há links selecionados: clicar no card seleciona em vez de abrir */
+  selecting: boolean;
+  onToggleSelect: () => void;
   refreshing: boolean;
   onRefreshThumb: () => void;
   onToggleFavorite: () => void;
@@ -24,13 +28,14 @@ type Props = {
   onDelete: () => void;
 };
 
-export function LinkCard({ uid, link, category, showCategory, pinnable, refreshing, onRefreshThumb, onToggleFavorite, onTogglePin, onToggleLater, onToggleImportant, onVisit, onEdit, onDelete }: Props) {
+export function LinkCard({ uid, link, category, showCategory, pinnable, selected, selecting, onToggleSelect, refreshing, onRefreshThumb, onToggleFavorite, onTogglePin, onToggleLater, onToggleImportant, onVisit, onEdit, onDelete }: Props) {
   const host = hostOf(link.url);
   const style = category ? ({ '--cat': category.color } as CSSProperties) : undefined;
 
   return (
     <article
-      className={'card' + (category ? ' has-cat' : '') + (pinnable && link.pinned ? ' is-pinned' : '')}
+      data-link-id={link.id}
+      className={'card' + (category ? ' has-cat' : '') + (pinnable && link.pinned ? ' is-pinned' : '') + (selected ? ' selected' : '')}
       style={style}
       draggable
       onDragStart={(e) => {
@@ -46,8 +51,16 @@ export function LinkCard({ uid, link, category, showCategory, pinnable, refreshi
         target="_blank"
         rel="noopener noreferrer"
         draggable={false}
-        onClick={onVisit}
-        onAuxClick={(e) => e.button === 1 && onVisit()}
+        onClick={(e) => {
+          // Com seleção ativa, ou com Shift/Ctrl/Cmd, o clique seleciona em vez de abrir
+          if (selecting || e.shiftKey || e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            onToggleSelect();
+            return;
+          }
+          onVisit();
+        }}
+        onAuxClick={(e) => e.button === 1 && !selecting && onVisit()}
       >
         <Thumb uid={uid} link={link} />
         {pinnable && link.pinned && (
@@ -72,6 +85,15 @@ export function LinkCard({ uid, link, category, showCategory, pinnable, refreshi
         aria-label="Recarregar miniatura"
       >
         <Icon name="refresh" size={15} />
+      </button>
+      <button
+        className={'card-check' + (selected ? ' on' : '')}
+        onClick={onToggleSelect}
+        aria-pressed={selected}
+        aria-label={selected ? 'Tirar da seleção' : 'Selecionar'}
+        title={selected ? 'Tirar da seleção' : 'Selecionar'}
+      >
+        <Icon name="check" size={14} />
       </button>
       {(link.important || link.later || link.favorite) && (
         <span className="card-marks" aria-hidden="true">
