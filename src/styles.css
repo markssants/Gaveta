@@ -1736,9 +1736,56 @@ body.dragging-folder .nav-root {
   }
 }
 
-/* Sem o mouse em cima, a pílula encolhe e mostra só as marcas ativas */
-@media (hover: hover) {
-  .home .card:not(:hover):not(:focus-within) .card-actions:has(.is-on) > :not(.is-on) {
+/* ---------- Início: marcas e botões do card ---------- */
+.card-marks {
+  display: none;
+}
+.home .card-marks {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.card-marks span {
+  display: grid;
+}
+.mark-important {
+  color: var(--danger);
+}
+.mark-later {
+  color: var(--accent);
+}
+.mark-fav {
+  color: var(--star);
+}
+/* Parado: só a etiqueta das marcas. Com o mouse em cima: os botões. */
+.home .card-actions {
+  display: none;
+}
+.home .card:hover .card-actions,
+.home .card:focus-within .card-actions {
+  display: flex;
+  opacity: 1;
+}
+.home .card:hover .card-marks,
+.home .card:focus-within .card-marks {
+  display: none;
+}
+/* Telas de toque não têm "passar o mouse": os botões ficam sempre à mostra */
+@media (hover: none) {
+  .home .card-actions {
+    display: flex;
+    opacity: 1;
+  }
+  .home .card-marks {
     display: none;
   }
 }

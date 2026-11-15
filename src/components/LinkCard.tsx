@@ -73,6 +73,25 @@ export function LinkCard({ uid, link, category, showCategory, pinnable, refreshi
       >
         <Icon name="refresh" size={15} />
       </button>
+      {(link.important || link.later || link.favorite) && (
+        <span className="card-marks" aria-hidden="true">
+          {link.important && (
+            <span className="mark-important">
+              <Icon name="flag" size={13} filled />
+            </span>
+          )}
+          {link.later && (
+            <span className="mark-later">
+              <Icon name="clock" size={13} />
+            </span>
+          )}
+          {link.favorite && (
+            <span className="mark-fav">
+              <Icon name="star" size={13} filled />
+            </span>
+          )}
+        </span>
+      )}
       <footer className="card-foot">
         {showCategory && (
           <span className="chip">
