@@ -139,7 +139,7 @@ const BATCH_LIMIT = 450;
  */
 export async function deleteCategory(uid: string, id: string, linkIds: string[], childIds: string[], parentId: string | null) {
   const writes = [
-    ...linkIds.map((lid) => ({ ref: doc(linksCol(uid), lid), patch: { categoryId: parentId } })),
+    ...linkIds.map((lid) => ({ ref: doc(linksCol(uid), lid), patch: { categoryId: parentId, pinned: false } })),
     ...childIds.map((cid) => ({ ref: doc(catsCol(uid), cid), patch: { parentId } })),
   ];
   for (let i = 0; i < writes.length; i += BATCH_LIMIT) {

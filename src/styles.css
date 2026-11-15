@@ -1654,3 +1654,30 @@ body.dragging-folder .nav-root {
 .nav-item .nav-btn:has(.nav-path) {
   height: 44px;
 }
+
+/* ---------- Fixar link na gaveta ---------- */
+.icon-btn.pin-on {
+  color: var(--accent);
+}
+.pin-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.card-main {
+  position: relative;
+}
+.card.is-pinned {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}

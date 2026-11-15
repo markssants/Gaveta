@@ -11,9 +11,12 @@ type Props = {
   link: LinkItem;
   category: Category | null;
   showCategory: boolean;
+  /** Está sendo mostrado dentro da própria gaveta: libera o botão de fixar nela */
+  pinnable: boolean;
   refreshing: boolean;
   onRefreshThumb: () => void;
   onToggleFavorite: () => void;
+  onTogglePin: () => void;
   onToggleLater: () => void;
   onToggleImportant: () => void;
   onVisit: () => void;
@@ -21,13 +24,13 @@ type Props = {
   onDelete: () => void;
 };
 
-export function LinkCard({ uid, link, category, showCategory, refreshing, onRefreshThumb, onToggleFavorite, onToggleLater, onToggleImportant, onVisit, onEdit, onDelete }: Props) {
+export function LinkCard({ uid, link, category, showCategory, pinnable, refreshing, onRefreshThumb, onToggleFavorite, onTogglePin, onToggleLater, onToggleImportant, onVisit, onEdit, onDelete }: Props) {
   const host = hostOf(link.url);
   const style = category ? ({ '--cat': category.color } as CSSProperties) : undefined;
 
   return (
     <article
-      className={'card' + (category ? ' has-cat' : '')}
+      className={'card' + (category ? ' has-cat' : '') + (pinnable && link.pinned ? ' is-pinned' : '')}
       style={style}
       draggable
       onDragStart={(e) => {
@@ -47,6 +50,11 @@ export function LinkCard({ uid, link, category, showCategory, refreshing, onRefr
         onAuxClick={(e) => e.button === 1 && onVisit()}
       >
         <Thumb uid={uid} link={link} />
+        {pinnable && link.pinned && (
+          <span className="pin-badge" title="Fixado nesta gaveta">
+            <Icon name="pin" size={12} filled /> Fixado
+          </span>
+        )}
         <div className="card-top">
           <Favicon url={link.url} />
           <span className="card-host">{host}</span>
@@ -80,6 +88,16 @@ export function LinkCard({ uid, link, category, showCategory, refreshing, onRefr
         )}
         <span className="card-time">{relTime(link.createdAt)}</span>
         <div className="card-actions">
+          {pinnable && (
+            <button
+              className={'icon-btn sm' + (link.pinned ? ' pin-on is-on' : '')}
+              onClick={onTogglePin}
+              title={link.pinned ? 'Tirar o destaque desta gaveta' : 'Fixar no topo desta gaveta'}
+              aria-pressed={Boolean(link.pinned)}
+            >
+              <Icon name="pin" size={15} filled={link.pinned} />
+            </button>
+          )}
           <button
             className={'icon-btn sm' + (link.later ? ' later-on is-on' : '')}
             onClick={onToggleLater}

@@ -21,6 +21,8 @@ export type LinkItem = {
   /** null = Caixa de entrada */
   categoryId: string | null;
   favorite: boolean;
+  /** Fixado no topo da gaveta em que o link está. Vale só ali, e é zerado se o link mudar de gaveta */
+  pinned?: boolean;
   /** Marcado como "Ver depois" */
   later?: boolean;
   /** Marcado como "Importante" */

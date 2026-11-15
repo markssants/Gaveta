@@ -251,8 +251,10 @@ export function Dashboard({ user }: { user: User }) {
       const c = catOf(l);
       return view === VIEW_INBOX ? c === null : c?.id === view;
     });
-    // Favoritos primeiro dentro de cada gaveta
-    if (!terms.length && view !== VIEW_FAV) list.sort((a, b) => Number(b.favorite) - Number(a.favorite));
+    // Dentro de uma gaveta: fixados nela primeiro, depois os favoritos
+    const inFolderView = !FIXED_VIEWS.includes(view);
+    const rank = (l: LinkItem) => (inFolderView && l.pinned ? 2 : 0) + (l.favorite ? 1 : 0);
+    if (!terms.length && view !== VIEW_FAV) list.sort((a, b) => rank(b) - rank(a));
     return list;
   }, [links, search, view, catOf]);
 
@@ -445,6 +447,7 @@ export function Dashboard({ user }: { user: User }) {
       title: draft.title || hostOf(url),
       note: draft.note,
       categoryId: draft.categoryId,
+      ...(draft.categoryId !== (linkModal.initial.categoryId ?? null) ? { pinned: false } : {}),
     });
     setLinkModal(null);
     return null;
@@ -479,7 +482,8 @@ export function Dashboard({ user }: { user: User }) {
   function moveLink(linkId: string, categoryId: string | null) {
     const l = links.find((x) => x.id === linkId);
     if (!l || (catOf(l)?.id ?? null) === categoryId) return;
-    void updateLink(uid, linkId, { categoryId });
+    // O destaque vale só na gaveta onde foi dado
+    void updateLink(uid, linkId, { categoryId, pinned: false });
     showToast(`Movido para ${catLabel(categoryId)}`);
   }
 
@@ -574,9 +578,11 @@ export function Dashboard({ user }: { user: User }) {
       link={l}
       category={catOf(l)}
       showCategory={showCategoryChip}
+      pinnable={Boolean(currentCategory) && !isSearching && l.categoryId === currentCategory!.id}
       refreshing={refreshing.has(l.id)}
       onRefreshThumb={() => void refreshThumb(l)}
       onToggleFavorite={() => void updateLink(uid, l.id, { favorite: !l.favorite })}
+      onTogglePin={() => void updateLink(uid, l.id, { pinned: !l.pinned })}
       onToggleLater={() => void updateLink(uid, l.id, { later: !l.later })}
       onToggleImportant={() => void updateLink(uid, l.id, { important: !l.important })}
       onVisit={() => void recordVisit(uid, l.id)}
