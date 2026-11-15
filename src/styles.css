@@ -1681,3 +1681,78 @@ body.dragging-folder .nav-root {
 .card.is-pinned {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
+
+/* ---------- Início: linhas compactas ---------- */
+.row-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 6px 16px;
+}
+.row {
+  position: relative;
+  border-radius: 10px;
+  transition: background 0.12s;
+}
+.row:hover {
+  background: var(--surface);
+}
+.row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 40px 6px 6px;
+  color: inherit;
+  text-decoration: none;
+}
+.card-thumb.compact {
+  width: 76px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.row-text {
+  display: grid;
+  min-width: 0;
+}
+.row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+}
+.row-main:hover .row-title {
+  color: var(--accent);
+}
+.row-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.row-x {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+}
+.row:hover .row-x,
+.row-x:focus-visible {
+  opacity: 1;
+}
+@media (max-width: 860px) {
+  .row-x {
+    opacity: 1;
+  }
+}
+@media (max-width: 560px) {
+  .row-list {
+    grid-template-columns: 1fr;
+  }
+}
+.home {
+  gap: 28px;
+}

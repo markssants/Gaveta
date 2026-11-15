@@ -787,7 +787,8 @@ export function Dashboard({ user }: { user: User }) {
               categories={categories}
               links={links}
               totals={totals}
-              renderCard={renderCard}
+              uid={uid}
+              onUnmark={(l, mark) => void updateLink(uid, l.id, { [mark]: false })}
               onOpenView={(v) => {
                 setView(v);
                 setSearch('');
