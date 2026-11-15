@@ -1735,3 +1735,10 @@ body.dragging-folder .nav-root {
     gap: 14px;
   }
 }
+
+/* Sem o mouse em cima, a pílula encolhe e mostra só as marcas ativas */
+@media (hover: hover) {
+  .home .card:not(:hover):not(:focus-within) .card-actions:has(.is-on) > :not(.is-on) {
+    display: none;
+  }
+}
