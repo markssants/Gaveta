@@ -5,16 +5,13 @@ import { hostOf } from '../lib/utils';
 import { Favicon } from './Favicon';
 import { FolderTile } from './FolderTile';
 import { Icon, type IconName } from './Icon';
-import { Thumb } from './Thumb';
 import { VIEW_FAV, VIEW_IMPORTANT, VIEW_LATER } from './Sidebar';
 
 type Props = {
   categories: Category[];
   links: LinkItem[];
   totals: Map<string, number>;
-  uid: string;
-  /** Tira o link da lista da seção (a marca correspondente é desligada) */
-  onUnmark: (link: LinkItem, mark: Mark) => void;
+  renderCard: (link: LinkItem) => ReactNode;
   onOpenView: (view: string) => void;
   onNewCategory: () => void;
   onVisit: (link: LinkItem) => void;
@@ -24,16 +21,11 @@ type Props = {
 };
 
 const MAX_SITES = 8;
-const MAX_ROWS = 6;
+/** Quantos cards cada seção mostra antes do "Ver todos" */
+const MAX_CARDS = 15;
 
-type Mark = 'important' | 'later' | 'favorite';
-
-export function Home({ categories, links, totals, uid, onUnmark, onOpenView, onNewCategory, onVisit, onMoveLink, onMoveFolder, canNest }: Props) {
+export function Home({ categories, links, totals, renderCard, onOpenView, onNewCategory, onVisit, onMoveLink, onMoveFolder, canNest }: Props) {
   const { roots } = buildTree(categories);
-  const nameOf = new Map(categories.map((c) => [c.id, c.name]));
-  const row = (mark: Mark, label: string) => (l: LinkItem) => (
-    <LinkRow key={l.id} uid={uid} link={l} place={l.categoryId ? nameOf.get(l.categoryId) : undefined} unmarkLabel={label} onVisit={() => onVisit(l)} onUnmark={() => onUnmark(l, mark)} />
-  );
   const manual = roots.filter((c) => !c.domain);
   const sites = roots.filter((c) => c.domain).sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0));
 
@@ -47,25 +39,25 @@ export function Home({ categories, links, totals, uid, onUnmark, onOpenView, onN
 
   return (
     <div className="home">
-      <Section icon="flag" title="Importante" count={important.length} onSeeAll={important.length > MAX_ROWS ? () => onOpenView(VIEW_IMPORTANT) : undefined}>
+      <Section icon="flag" title="Importante" count={important.length} onSeeAll={important.length > MAX_CARDS ? () => onOpenView(VIEW_IMPORTANT) : undefined}>
         {important.length ? (
-          <div className="row-list">{important.slice(0, MAX_ROWS).map(row('important', 'Tirar de Importante'))}</div>
+          <div className="grid">{important.slice(0, MAX_CARDS).map(renderCard)}</div>
         ) : (
           <p className="home-empty">Marque um link com a bandeira para ele aparecer aqui.</p>
         )}
       </Section>
 
-      <Section icon="clock" title="Ver depois" count={later.length} onSeeAll={later.length > MAX_ROWS ? () => onOpenView(VIEW_LATER) : undefined}>
+      <Section icon="clock" title="Ver depois" count={later.length} onSeeAll={later.length > MAX_CARDS ? () => onOpenView(VIEW_LATER) : undefined}>
         {later.length ? (
-          <div className="row-list">{later.slice(0, MAX_ROWS).map(row('later', 'Tirar de Ver depois'))}</div>
+          <div className="grid">{later.slice(0, MAX_CARDS).map(renderCard)}</div>
         ) : (
           <p className="home-empty">Marque um link com o relógio para ele aparecer aqui.</p>
         )}
       </Section>
 
-      <Section icon="star" title="Favoritos" count={favorites.length} onSeeAll={favorites.length > MAX_ROWS ? () => onOpenView(VIEW_FAV) : undefined}>
+      <Section icon="star" title="Favoritos" count={favorites.length} onSeeAll={favorites.length > MAX_CARDS ? () => onOpenView(VIEW_FAV) : undefined}>
         {favorites.length ? (
-          <div className="row-list">{favorites.slice(0, MAX_ROWS).map(row('favorite', 'Tirar dos favoritos'))}</div>
+          <div className="grid">{favorites.slice(0, MAX_CARDS).map(renderCard)}</div>
         ) : (
           <p className="home-empty">Clique na estrela de um card para favoritar.</p>
         )}
@@ -116,41 +108,6 @@ export function Home({ categories, links, totals, uid, onUnmark, onOpenView, onN
         </div>
         {sites.length > MAX_SITES && <p className="muted small home-note">Mais {sites.length - MAX_SITES} sites na barra lateral.</p>}
       </Section>
-    </div>
-  );
-}
-
-/** Linha compacta: miniatura pequena, título e site. Sem os botões do card completo. */
-function LinkRow({
-  uid,
-  link,
-  place,
-  unmarkLabel,
-  onVisit,
-  onUnmark,
-}: {
-  uid: string;
-  link: LinkItem;
-  place?: string;
-  unmarkLabel: string;
-  onVisit: () => void;
-  onUnmark: () => void;
-}) {
-  return (
-    <div className="row">
-      <a className="row-main" href={link.url} target="_blank" rel="noopener noreferrer" onClick={onVisit} onAuxClick={(e) => e.button === 1 && onVisit()}>
-        <Thumb uid={uid} link={link} compact />
-        <span className="row-text">
-          <span className="row-title">{link.title || hostOf(link.url)}</span>
-          <span className="row-meta">
-            {hostOf(link.url)}
-            {place && ` · ${place}`}
-          </span>
-        </span>
-      </a>
-      <button className="icon-btn sm row-x" onClick={onUnmark} title={unmarkLabel} aria-label={unmarkLabel}>
-        <Icon name="x" size={14} />
-      </button>
     </div>
   );
 }

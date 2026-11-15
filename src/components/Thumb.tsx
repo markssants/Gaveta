@@ -4,7 +4,7 @@ import type { LinkItem } from '../lib/types';
 import { Favicon } from './Favicon';
 
 /** Só baixa a miniatura quando o card chega perto da tela */
-export function Thumb({ uid, link, compact = false }: { uid: string; link: LinkItem; compact?: boolean }) {
+export function Thumb({ uid, link }: { uid: string; link: LinkItem }) {
   const ref = useRef<HTMLDivElement>(null);
   const [src, setSrc] = useState<string | null>(null);
 
@@ -28,8 +28,8 @@ export function Thumb({ uid, link, compact = false }: { uid: string; link: LinkI
   }, [uid, link.id, link.hasThumb, link.thumbAt]);
 
   return (
-    <div className={'card-thumb' + (compact ? ' compact' : '')} ref={ref}>
-      {src ? <img src={src} alt="" /> : <Favicon url={link.url} size={compact ? 18 : 32} />}
+    <div className="card-thumb" ref={ref}>
+      {src ? <img src={src} alt="" /> : <Favicon url={link.url} size={32} />}
     </div>
   );
 }

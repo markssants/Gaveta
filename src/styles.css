@@ -1465,7 +1465,7 @@ em.muted {
 /* ---------- Início ---------- */
 .home {
   display: grid;
-  gap: 34px;
+  gap: 48px;
 }
 .home-head {
   display: flex;
@@ -1682,77 +1682,56 @@ body.dragging-folder .nav-root {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
-/* ---------- Início: linhas compactas ---------- */
-.row-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 6px 16px;
+/* ---------- Início: cards menores e mais limpos ---------- */
+.home .grid {
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: 20px;
 }
-.row {
-  position: relative;
-  border-radius: 10px;
-  transition: background 0.12s;
+.home .home-head {
+  margin-bottom: 18px;
 }
-.row:hover {
-  background: var(--surface);
+.home .card {
+  min-height: 0;
+  box-shadow: none;
 }
-.row-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 6px 40px 6px 6px;
-  color: inherit;
-  text-decoration: none;
+.home .card.has-cat::before,
+.home .thumb-refresh,
+.home .card-note,
+.home .card-time,
+.home .chip {
+  display: none;
 }
-.card-thumb.compact {
-  width: 76px;
-  flex: none;
-  border: 1px solid var(--border);
-  border-radius: 7px;
+.home .card-top {
+  padding: 12px 14px 0;
+  margin-bottom: 6px;
 }
-.row-text {
-  display: grid;
-  min-width: 0;
+.home .card-text {
+  padding: 0 14px 14px;
 }
-.row-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.home .card-title {
   font-size: 14px;
-  font-weight: 500;
 }
-.row-main:hover .row-title {
-  color: var(--accent);
+/* Os botões só aparecem ao passar o mouse, por cima da miniatura */
+.home .card-foot {
+  position: static;
+  min-height: 0;
+  padding: 0;
 }
-.row-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--muted);
-  font-size: 12.5px;
-}
-.row-x {
+.home .card-actions {
   position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
-  opacity: 0;
-}
-.row:hover .row-x,
-.row-x:focus-visible {
-  opacity: 1;
-}
-@media (max-width: 860px) {
-  .row-x {
-    opacity: 1;
-  }
+  top: 8px;
+  right: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: 2px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(6px);
 }
 @media (max-width: 560px) {
-  .row-list {
-    grid-template-columns: 1fr;
+  .home .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
   }
-}
-.home {
-  gap: 28px;
 }
