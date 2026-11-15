@@ -1,6 +1,10 @@
 import type { Category } from './types';
 
-/** Monta a árvore de gavetas. Pai inexistente ou referência circular vira gaveta de topo. */
+/** Ordem alfabética em português: ignora maiúsculas e acentos, e "2" vem antes de "10" */
+export const byName = (a: { name: string }, b: { name: string }) =>
+  a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base', numeric: true });
+
+/** Monta a árvore de gavetas, com cada nível em ordem alfabética. Pai inexistente ou referência circular vira gaveta de topo. */
 export function buildTree(categories: Category[]) {
   const byId = new Map(categories.map((c) => [c.id, c]));
   const inLoop = (start: Category) => {
@@ -23,6 +27,8 @@ export function buildTree(categories: Category[]) {
       roots.push(c);
     }
   }
+  roots.sort(byName);
+  for (const list of children.values()) list.sort(byName);
   return { roots, children };
 }
 

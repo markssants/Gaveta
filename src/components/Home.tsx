@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { buildTree } from '../lib/tree';
+import { buildTree, byName } from '../lib/tree';
 import type { Category, LinkItem } from '../lib/types';
 import { hostOf } from '../lib/utils';
 import { Favicon } from './Favicon';
@@ -27,7 +27,9 @@ const MAX_CARDS = 15;
 export function Home({ categories, links, totals, renderCard, onOpenView, onNewCategory, onVisit, onMoveLink, onMoveFolder, canNest }: Props) {
   const { roots } = buildTree(categories);
   const manual = roots.filter((c) => !c.domain);
-  const sites = roots.filter((c) => c.domain).sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0));
+  // Os 8 sites com mais links entram no Início, mostrados em ordem alfabética
+  const allSites = roots.filter((c) => c.domain);
+  const sites = [...allSites].sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0)).slice(0, MAX_SITES).sort(byName);
 
   const visited = links
     .filter((l) => (l.visits ?? 0) > 0)
@@ -91,7 +93,7 @@ export function Home({ categories, links, totals, renderCard, onOpenView, onNewC
 
       <Section icon="layers" title="Gavetas">
         <div className="subfolders">
-          {[...manual, ...sites.slice(0, MAX_SITES)].map((c) => (
+          {[...manual, ...sites].map((c) => (
             <FolderTile
               key={c.id}
               category={c}
@@ -106,7 +108,7 @@ export function Home({ categories, links, totals, renderCard, onOpenView, onNewC
             <Icon name="plus" size={15} /> Nova gaveta
           </button>
         </div>
-        {sites.length > MAX_SITES && <p className="muted small home-note">Mais {sites.length - MAX_SITES} sites na barra lateral.</p>}
+        {allSites.length > MAX_SITES && <p className="muted small home-note">Mais {allSites.length - MAX_SITES} sites na barra lateral.</p>}
       </Section>
     </div>
   );

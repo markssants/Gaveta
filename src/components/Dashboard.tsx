@@ -21,7 +21,7 @@ import {
 import type { Category, LinkItem } from '../lib/types';
 import { CATEGORY_COLORS, DRAG_FOLDER, DRAG_LINK, dragState } from '../lib/types';
 import { planGrouping } from '../lib/grouping';
-import { ancestorsOf, flattenTree, totalsOf, withDescendants } from '../lib/tree';
+import { ancestorsOf, byName, flattenTree, totalsOf, withDescendants } from '../lib/tree';
 import { fetchThumb, isValidThumb } from '../lib/thumb';
 import { cleanItems, download, parseQuick, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
@@ -577,7 +577,7 @@ export function Dashboard({ user }: { user: User }) {
 
   const inFolder = Boolean(currentCategory) && !isSearching;
   const ancestors = currentCategory ? ancestorsOf(categories, currentCategory.id) : [];
-  const subfolders = currentCategory ? categories.filter((c) => c.parentId === currentCategory.id) : [];
+  const subfolders = currentCategory ? categories.filter((c) => c.parentId === currentCategory.id).sort(byName) : [];
   const totals = totalsOf(categories, counts.byCat);
 
   const onHomeView = view === VIEW_HOME && !isSearching;

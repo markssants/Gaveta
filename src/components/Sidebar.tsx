@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import type { Category } from '../lib/types';
 import { DRAG_FOLDER, DRAG_LINK, dragState } from '../lib/types';
-import { ancestorsOf, buildTree, totalsOf } from '../lib/tree';
+import { ancestorsOf, buildTree, byName, totalsOf } from '../lib/tree';
 import { Favicon } from './Favicon';
 import { Icon } from './Icon';
 
@@ -47,10 +47,8 @@ export function Sidebar(p: Props) {
   const openPath = useMemo(() => new Set(ancestorsOf(p.categories, p.view).map((c) => c.id)), [p.categories, p.view]);
 
   const manual = roots.filter((c) => !c.domain);
-  // Sites com mais links primeiro
-  const sites = roots
-    .filter((c) => c.domain)
-    .sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0) || a.name.localeCompare(b.name));
+  // Já vêm em ordem alfabética de buildTree
+  const sites = roots.filter((c) => c.domain);
 
   function toggle(id: string) {
     const next = new Set(expandedIds);
@@ -62,7 +60,7 @@ export function Sidebar(p: Props) {
 
   // Gavetas e subpastas favoritas, em qualquer nível, numa lista só para achar rápido
   const favorites = useMemo(
-    () => p.categories.filter((c) => c.favorite).sort((a, b) => a.name.localeCompare(b.name)),
+    () => p.categories.filter((c) => c.favorite).sort(byName),
     [p.categories],
   );
   const pathOf = (c: Category) =>
