@@ -24,7 +24,7 @@ Painel pessoal para salvar links organizados por categorias ("gavetas"), feito p
 - **Busca** em título, URL, nota e nome da gaveta (atalho `/`). Atalho `n` abre um link novo
 - Avisa quando um link já foi salvo
 - Login com Google, sincronização em tempo real entre dispositivos e cache offline
-- Exportação de backup em JSON
+- **Backup e restauração** (botão no topo): baixa tudo em um arquivo (links, gavetas, subpastas, marcas e miniaturas) e restaura a partir dele sem apagar nem duplicar nada. O botão ganha um ponto vermelho quando faz mais de uma semana sem backup
 - Tema claro e escuro automáticos, funciona no celular
 
 ## Stack

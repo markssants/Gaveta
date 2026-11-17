@@ -9,13 +9,13 @@ type Props = {
   inboxCount: number;
   loading: boolean;
   onToggleAutoGroup: (on: boolean) => void;
-  onExport: () => void;
+  onOpenBackup: () => void;
   onSignOut: () => void;
   onOpenExtension: () => void;
   onClose: () => void;
 };
 
-export function SettingsModal({ user, autoGroup, inboxCount, loading, onToggleAutoGroup, onExport, onSignOut, onOpenExtension, onClose }: Props) {
+export function SettingsModal({ user, autoGroup, inboxCount, loading, onToggleAutoGroup, onOpenBackup, onSignOut, onOpenExtension, onClose }: Props) {
   const bmRef = useRef<HTMLAnchorElement>(null);
 
   // React bloqueia href="javascript:", então definimos direto no DOM
@@ -86,8 +86,9 @@ export function SettingsModal({ user, autoGroup, inboxCount, loading, onToggleAu
 
         <section>
           <h3>Backup</h3>
-          <button className="btn" onClick={onExport}>
-            <Icon name="download" size={16} /> Exportar tudo (JSON)
+          <p className="muted small">Salve tudo em um arquivo, ou restaure a partir de um.</p>
+          <button className="btn" onClick={onOpenBackup}>
+            <Icon name="download" size={16} /> Backup e restauração
           </button>
         </section>
 

@@ -2,13 +2,8 @@ import { auth } from './firebase';
 
 const WIDTH = 480;
 const HEIGHT = 270;
-/** Limite da miniatura em texto base64 (o documento do Firestore aceita até 1 MB) */
-export const MAX_THUMB_CHARS = 200_000;
-
-/** Aceita só JPEG/WebP em base64, o formato que a extensão envia */
-export function isValidThumb(value: unknown): value is string {
-  return typeof value === 'string' && value.length <= MAX_THUMB_CHARS && /^data:image\/(jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
-}
+export { isValidThumb, MAX_THUMB_CHARS } from './thumbFormat';
+import { isValidThumb } from './thumbFormat';
 
 /** Reduz a imagem para 480×270, cortando pelo centro, e devolve como JPEG em base64 */
 async function shrink(blob: Blob): Promise<string | null> {

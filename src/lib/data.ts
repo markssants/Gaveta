@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocFromCache,
+  getDocs,
   increment,
   onSnapshot,
   orderBy,
@@ -14,6 +15,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import type { RestorePlan, Thumbs } from './backup';
 import type { Category, LinkItem, NewLink } from './types';
 
 const linksCol = (uid: string) => collection(db, 'users', uid, 'links');
@@ -191,6 +193,32 @@ export async function moveLinks(uid: string, moves: { id: string; categoryId: st
     const batch = writeBatch(db);
     for (const m of moves.slice(i, i + BATCH_LIMIT)) batch.update(doc(linksCol(uid), m.id), { categoryId: m.categoryId });
     await batch.commit();
+  }
+}
+
+/** Lê todas as miniaturas guardadas (uma leitura por miniatura) */
+export async function fetchAllThumbs(uid: string): Promise<Thumbs> {
+  const snap = await getDocs(collection(db, 'users', uid, 'thumbs'));
+  const out: Thumbs = {};
+  snap.forEach((d) => {
+    const { data, at } = d.data() as { data?: string; at?: number };
+    if (data) out[d.id] = at ? { data, at } : { data };
+  });
+  return out;
+}
+
+/** Grava o que o plano de restauração mandou, mantendo os ids originais */
+export async function restoreData(uid: string, plan: RestorePlan, onProgress?: (done: number, total: number) => void) {
+  const ops: ((batch: ReturnType<typeof writeBatch>) => void)[] = [
+    ...plan.categories.map(({ id, ...data }) => (b: ReturnType<typeof writeBatch>) => b.set(doc(catsCol(uid), id), data)),
+    ...plan.links.map(({ id, ...data }) => (b: ReturnType<typeof writeBatch>) => b.set(doc(linksCol(uid), id), data)),
+    ...Object.entries(plan.thumbs).map(([id, t]) => (b: ReturnType<typeof writeBatch>) => b.set(thumbDoc(uid, id), t)),
+  ];
+  for (let i = 0; i < ops.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const op of ops.slice(i, i + BATCH_LIMIT)) op(batch);
+    await batch.commit();
+    onProgress?.(Math.min(i + BATCH_LIMIT, ops.length), ops.length);
   }
 }
 

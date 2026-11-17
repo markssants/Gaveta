@@ -23,13 +23,14 @@ import { CATEGORY_COLORS, DRAG_FOLDER, DRAG_LINK, dragState } from '../lib/types
 import { planGrouping } from '../lib/grouping';
 import { ancestorsOf, byName, flattenTree, totalsOf, withDescendants } from '../lib/tree';
 import { fetchThumb, isValidThumb } from '../lib/thumb';
-import { cleanItems, download, parseQuick, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
+import { cleanItems, parseQuick, fetchTitle, hostOf, normalizeUrl, pool, urlKey } from '../lib/utils';
 import { CategoryModal } from './CategoryModal';
 import { Icon } from './Icon';
 import { ImportModal } from './ImportModal';
 import { LinkCard } from './LinkCard';
 import { LinkModal, type LinkDraft } from './LinkModal';
 import { SettingsModal } from './SettingsModal';
+import { BackupModal } from './BackupModal';
 import { ExtensionModal } from './ExtensionModal';
 import { Sidebar, VIEW_ALL, VIEW_FAV, VIEW_HOME, VIEW_IMPORTANT, VIEW_INBOX, VIEW_LATER } from './Sidebar';
 import { Home } from './Home';
@@ -107,6 +108,14 @@ export function Dashboard({ user }: { user: User }) {
   const [autoSave, setAutoSave] = useState<AutoSave | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [extOpen, setExtOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [lastBackup, setLastBackup] = useState<number | null>(() => {
+    try {
+      return Number(localStorage.getItem('gaveta-last-backup')) || null;
+    } catch {
+      return null;
+    }
+  });
   const [dropActive, setDropActive] = useState(false);
   const [toast, setToast] = useState<{ msg: string; id: number } | null>(null);
 
@@ -549,15 +558,8 @@ export function Dashboard({ user }: { user: User }) {
     showToast('Link excluído');
   }
 
-  function exportAll() {
-    const data = {
-      app: 'gaveta',
-      exportedAt: new Date().toISOString(),
-      categories,
-      links,
-    };
-    download(`gaveta-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
-  }
+  // Aviso discreto no botão quando faz mais de uma semana (ou nunca) que não há backup
+  const backupStale = !lastBackup || Date.now() - lastBackup > 7 * 86_400_000;
 
   const heading = isSearching
     ? { emoji: null, title: `Resultados para "${search.trim()}"` }
@@ -704,6 +706,14 @@ export function Dashboard({ user }: { user: User }) {
             <kbd>/</kbd>
           )}
         </div>
+        <button
+          className={'btn backup-btn' + (backupStale ? ' stale' : '')}
+          onClick={() => setBackupOpen(true)}
+          disabled={loading || Boolean(error)}
+          title={loading ? 'Carregando seus dados…' : backupStale ? 'Fazer backup (faz tempo que você não faz)' : 'Backup e restauração'}
+        >
+          <Icon name="download" size={16} /> <span className="hide-sm">Backup</span>
+        </button>
         <button className="avatar-btn" onClick={() => setSettingsOpen(true)} title="Configurações">
           {user.photoURL ? <img src={user.photoURL} alt="" className="avatar" referrerPolicy="no-referrer" /> : <span className="avatar" />}
         </button>
@@ -960,13 +970,36 @@ export function Dashboard({ user }: { user: User }) {
           inboxCount={counts.inbox}
           loading={loading}
           onToggleAutoGroup={(on) => void toggleAutoGroup(on)}
-          onExport={exportAll}
+          onOpenBackup={() => {
+            setSettingsOpen(false);
+            setBackupOpen(true);
+          }}
           onSignOut={() => void signOut(auth)}
           onOpenExtension={() => {
             setSettingsOpen(false);
             setExtOpen(true);
           }}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {backupOpen && (
+        <BackupModal
+          uid={uid}
+          categories={categories}
+          links={links}
+          autoGroup={autoGroup}
+          lastBackup={lastBackup}
+          onBackedUp={(at) => {
+            setLastBackup(at);
+            try {
+              localStorage.setItem('gaveta-last-backup', String(at));
+            } catch {
+              /* sem armazenamento: só não lembra a data */
+            }
+          }}
+          onRestored={showToast}
+          onClose={() => setBackupOpen(false)}
         />
       )}
 

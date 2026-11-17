@@ -1899,3 +1899,79 @@ body.has-selection .toast {
     opacity: 1;
   }
 }
+
+/* ---------- Backup ---------- */
+.backup-btn {
+  position: relative;
+  margin-left: auto;
+  height: 36px;
+}
+.backup-btn + .avatar-btn {
+  margin-left: 0;
+}
+.backup-btn.stale::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.backup {
+  display: grid;
+  gap: 16px;
+}
+.backup section {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.backup h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.backup p {
+  margin: 0;
+}
+.backup hr {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.backup .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.backup-last {
+  font-size: 12.5px;
+}
+.restore-preview {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.restore-preview .btn {
+  justify-self: start;
+  margin-top: 4px;
+}
+.backup-busy {
+  color: var(--accent);
+  font-weight: 500;
+}
+.form-ok {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #2e8b57 14%, transparent);
+  color: #2e8b57;
+  font-size: 14px;
+}
